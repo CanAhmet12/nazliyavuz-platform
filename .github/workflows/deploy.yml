@@ -1,0 +1,385 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  LARAVEL_VERSION: 12
+  PHP_VERSION: 8.2
+  NODE_VERSION: 18
+  FLUTTER_VERSION: 3.8.1
+
+jobs:
+  # Backend Tests
+  backend-tests:
+    runs-on: ubuntu-latest
+    name: Backend Tests
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: nazliyavuz_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ env.PHP_VERSION }}
+        extensions: mbstring, dom, fileinfo, mysql, redis, gd, zip, curl, xml, bcmath, soap, intl, gmp, imagick
+        coverage: xdebug
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Get Composer Cache Directory
+      id: composer-cache
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache Composer dependencies
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+
+    - name: Install Composer dependencies
+      working-directory: ./backend
+      run: composer install --prefer-dist --no-progress --no-suggest
+
+    - name: Copy .env
+      working-directory: ./backend
+      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+
+    - name: Generate key
+      working-directory: ./backend
+      run: php artisan key:generate
+
+    - name: Directory Permissions
+      working-directory: ./backend
+      run: chmod -R 777 storage bootstrap/cache
+
+    - name: Create Database
+      working-directory: ./backend
+      run: |
+        mysql --host 127.0.0.1 --port 3306 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS nazliyavuz_test;"
+
+    - name: Execute tests (Unit and Feature tests) via PHPUnit
+      working-directory: ./backend
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_DATABASE: nazliyavuz_test
+        DB_USERNAME: root
+        DB_PASSWORD: root
+        CACHE_DRIVER: redis
+        REDIS_HOST: 127.0.0.1
+        REDIS_PORT: 6379
+        JWT_SECRET: test_jwt_secret_key_for_testing_purposes_only
+      run: php artisan test --coverage --coverage-clover=coverage.xml
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  # Frontend Tests
+  frontend-tests:
+    runs-on: ubuntu-latest
+    name: Frontend Tests
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Get Flutter dependencies
+      working-directory: ./frontend/nazliyavuz_app
+      run: flutter pub get
+
+    - name: Verify formatting
+      working-directory: ./frontend/nazliyavuz_app
+      run: dart format --output=none --set-exit-if-changed .
+
+    - name: Analyze project source
+      working-directory: ./frontend/nazliyavuz_app
+      run: flutter analyze
+
+    - name: Run tests
+      working-directory: ./frontend/nazliyavuz_app
+      run: flutter test --coverage
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/nazliyavuz_app/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  # Security Scan
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scan
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Build and Deploy
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    needs: [backend-tests, frontend-tests, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ env.PHP_VERSION }}
+        extensions: mbstring, dom, fileinfo, mysql, redis, gd, zip, curl, xml, bcmath, soap, intl, gmp, imagick
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+
+    # Backend Build
+    - name: Install Composer dependencies
+      working-directory: ./backend
+      run: composer install --prefer-dist --no-dev --optimize-autoloader
+
+    - name: Generate optimized autoloader
+      working-directory: ./backend
+      run: composer dump-autoload --optimize
+
+    - name: Create production .env
+      working-directory: ./backend
+      run: |
+        cp .env.example .env.production
+        echo "APP_ENV=production" >> .env.production
+        echo "APP_DEBUG=false" >> .env.production
+        echo "APP_KEY=" >> .env.production
+
+    - name: Generate application key
+      working-directory: ./backend
+      run: php artisan key:generate --env=production
+
+    - name: Cache configuration
+      working-directory: ./backend
+      run: php artisan config:cache --env=production
+
+    - name: Cache routes
+      working-directory: ./backend
+      run: php artisan route:cache --env=production
+
+    - name: Cache views
+      working-directory: ./backend
+      run: php artisan view:cache --env=production
+
+    # Frontend Build
+    - name: Get Flutter dependencies
+      working-directory: ./frontend/nazliyavuz_app
+      run: flutter pub get
+
+    - name: Build Flutter APK
+      working-directory: ./frontend/nazliyavuz_app
+      run: flutter build apk --release --target-platform android-arm64
+
+    - name: Build Flutter iOS
+      working-directory: ./frontend/nazliyavuz_app
+      run: flutter build ios --release --no-codesign
+
+    - name: Build Flutter Web
+      working-directory: ./frontend/nazliyavuz_app
+      run: flutter build web --release
+
+    # Docker Build
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          nazliyavuz/platform:latest
+          nazliyavuz/platform:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    # Deploy to Production
+    - name: Deploy to production server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USERNAME }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        script: |
+          cd /var/www/nazliyavuz-platform
+          git pull origin main
+          docker-compose down
+          docker-compose pull
+          docker-compose up -d
+          docker-compose exec backend php artisan migrate --force
+          docker-compose exec backend php artisan config:cache
+          docker-compose exec backend php artisan route:cache
+          docker-compose exec backend php artisan view:cache
+
+    # Health Check
+    - name: Health Check
+      run: |
+        sleep 30
+        curl -f https://api.nazliyavuz.com/health || exit 1
+
+    # Notify Deployment
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Database Migration
+  database-migration:
+    runs-on: ubuntu-latest
+    name: Database Migration
+    needs: [backend-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ env.PHP_VERSION }}
+        extensions: mbstring, dom, fileinfo, mysql, redis, gd, zip, curl, xml, bcmath, soap, intl, gmp, imagick
+
+    - name: Install Composer dependencies
+      working-directory: ./backend
+      run: composer install --prefer-dist --no-dev --optimize-autoloader
+
+    - name: Run database migrations
+      working-directory: ./backend
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DB_DATABASE: ${{ secrets.DB_DATABASE }}
+        DB_USERNAME: ${{ secrets.DB_USERNAME }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      run: |
+        php artisan migrate --force
+        php artisan db:seed --force
+
+    - name: Create database backup
+      working-directory: ./backend
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DB_DATABASE: ${{ secrets.DB_DATABASE }}
+        DB_USERNAME: ${{ secrets.DB_USERNAME }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      run: php artisan backup:database --storage=s3
+
+  # Performance Test
+  performance-test:
+    runs-on: ubuntu-latest
+    name: Performance Test
+    needs: [deploy]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install k6
+      run: |
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+
+    - name: Run performance tests
+      run: |
+        k6 run --out json=performance-results.json performance-tests/load-test.js
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: performance-results.json
