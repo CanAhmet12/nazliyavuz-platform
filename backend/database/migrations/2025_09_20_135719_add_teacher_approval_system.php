@@ -14,7 +14,10 @@ return new class extends Migration
     {
         // Users tablosuna teacher onay alanları ekle (sadece eksik olanları)
         Schema::table('users', function (Blueprint $table) {
-            // teacher_status zaten var, sadece eksik alanları ekle
+            // teacher_status kolonu yok, onu da ekle
+            if (!Schema::hasColumn('users', 'teacher_status')) {
+                $table->enum('teacher_status', ['pending', 'approved', 'rejected'])->nullable()->after('role');
+            }
             if (!Schema::hasColumn('users', 'admin_notes')) {
                 $table->text('admin_notes')->nullable()->after('teacher_status');
             }

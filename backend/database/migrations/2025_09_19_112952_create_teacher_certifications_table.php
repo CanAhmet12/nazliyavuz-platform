@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('teacher_certifications', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('teacher_id')->constrained()->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('teachers', 'user_id')->onDelete('cascade');
             $table->string('certification_type'); // diploma, certificate, license, etc.
             $table->string('institution');
             $table->string('certificate_number')->nullable();
@@ -29,7 +29,7 @@ return new class extends Migration
 
         Schema::create('teacher_portfolios', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('teacher_id')->constrained()->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('teachers', 'user_id')->onDelete('cascade');
             $table->string('title');
             $table->text('description');
             $table->string('file_url');
@@ -41,7 +41,7 @@ return new class extends Migration
 
         Schema::create('teacher_videos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('teacher_id')->constrained()->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('teachers', 'user_id')->onDelete('cascade');
             $table->string('title');
             $table->text('description');
             $table->string('video_url');

@@ -5,9 +5,11 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:dio/dio.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/email_verification_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'services/api_service.dart';
 import 'services/offline_service.dart';
@@ -141,6 +143,11 @@ class AppNavigator extends StatelessWidget {
           );
         } else if (state is AuthAuthenticated) {
           return const HomeScreen();
+        } else if (state is AuthEmailVerificationRequired) {
+          return EmailVerificationScreen(
+            email: state.email,
+            verificationToken: state.verificationCode,
+          );
         } else if (state is AuthUnauthenticated) {
           return const LoginScreen();
         } else {
@@ -216,6 +223,10 @@ class AuthUnauthorized extends AuthEvent {
   const AuthUnauthorized();
 }
 
+class AuthEmailVerified extends AuthEvent {
+  const AuthEmailVerified();
+}
+
 // Auth Bloc
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final ApiService _apiService;
@@ -229,6 +240,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLogout>(_onLogout);
     on<AuthRefreshRequested>(_onRefreshRequested);
     on<AuthUnauthorized>(_onUnauthorized);
+    on<AuthEmailVerified>(_onEmailVerified);
     
     // Set up unauthorized callback
     _apiService.onUnauthorized = () {
@@ -268,6 +280,34 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (kDebugMode) {
         print('❌ [AUTH_BLOC] Login failed: $e');
       }
+      
+      // E-posta doğrulama hatası kontrolü
+      if (e.toString().contains('EMAIL_NOT_VERIFIED')) {
+        try {
+          // API response'dan e-posta doğrulama bilgilerini al
+          final dioError = e as DioException;
+          final responseData = dioError.response?.data;
+          if (responseData != null && responseData['error'] != null) {
+            final emailVerification = responseData['error']['email_verification'];
+            if (emailVerification != null) {
+              if (kDebugMode) {
+                print('📧 [AUTH_BLOC] Email verification required');
+                print('📧 [AUTH_BLOC] Verification code: ${emailVerification['verification_code']}');
+              }
+              emit(AuthEmailVerificationRequired(
+                email: event.email,
+                verificationCode: emailVerification['verification_code']?.toString() ?? '',
+              ));
+              return;
+            }
+          }
+        } catch (parseError) {
+          if (kDebugMode) {
+            print('❌ [AUTH_BLOC] Error parsing email verification response: $parseError');
+          }
+        }
+      }
+      
       emit(AuthError(e.toString()));
     }
   }
@@ -369,6 +409,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthUnauthenticated());
   }
 
+  Future<void> _onEmailVerified(AuthEmailVerified event, Emitter<AuthState> emit) async {
+    if (kDebugMode) {
+      print('✅ [AUTH_BLOC] Email verified - refreshing user data');
+    }
+    await _checkAuthStatus();
+  }
+
 }
 
 // Auth States
@@ -401,4 +448,17 @@ class AuthError extends AuthState {
 
   @override
   List<Object> get props => [message];
+}
+
+class AuthEmailVerificationRequired extends AuthState {
+  final String email;
+  final String verificationCode;
+
+  const AuthEmailVerificationRequired({
+    required this.email,
+    required this.verificationCode,
+  });
+
+  @override
+  List<Object> get props => [email, verificationCode];
 }

@@ -679,39 +679,46 @@ class AuthController extends Controller
      *     )
      * )
      */
-    public function verifyEmailCode(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'code' => 'required|string|size:6'
-        ]);
+        public function verifyEmailCode(Request $request): JsonResponse
+        {
+            \Log::info("🔍 AuthController::verifyEmailCode called with code: " . $request->code);
+            
+            $validator = Validator::make($request->all(), [
+                'code' => 'required|string|size:6'
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Doğrulama kodu geçersiz',
-                'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
-                ]
-            ], 400);
-        }
+            if ($validator->fails()) {
+                \Log::error("❌ Validation failed: " . json_encode($validator->errors()));
+                return response()->json([
+                    'message' => 'Doğrulama kodu geçersiz',
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => $validator->errors()
+                    ]
+                ], 400);
+            }
 
-        $code = $request->code;
-        
-        // Kodu bul
-        $verification = EmailVerification::findByCode($code);
-        
-        if (!$verification) {
-            return response()->json([
-                'message' => 'Geçersiz veya süresi dolmuş doğrulama kodu',
-                'error' => [
-                    'code' => 'INVALID_CODE',
-                    'message' => 'Lütfen geçerli bir 6 haneli kod girin'
-                ]
-            ], 400);
-        }
+            $code = $request->code;
+            
+            // Kodu bul
+            $verification = EmailVerification::findByCode($code);
+            \Log::info("🔍 Verification found: " . ($verification ? 'YES' : 'NO'));
+            
+            if (!$verification) {
+                \Log::error("❌ No verification found for code: " . $code);
+                return response()->json([
+                    'message' => 'Geçersiz veya süresi dolmuş doğrulama kodu',
+                    'error' => [
+                        'code' => 'INVALID_CODE',
+                        'message' => 'Lütfen geçerli bir 6 haneli kod girin'
+                    ]
+                ], 400);
+            }
 
-        // Kodu doğrula
-        if ($verification->verifyWithCode($code)) {
+            // Kodu doğrula
+            \Log::info("🔍 Calling verifyWithCode...");
+            if ($verification->verifyWithCode($code)) {
+                \Log::info("✅ verifyWithCode returned true");
             // Audit log
             AuditLog::createLog(
                 userId: $verification->user_id,
@@ -726,14 +733,17 @@ class AuthController extends Controller
                 userAgent: $request->userAgent(),
             );
 
+            // User'ı yeniden yükle
+            $user = User::find($verification->user_id);
+            
             return response()->json([
                 'message' => 'E-posta adresiniz başarıyla doğrulandı',
                 'user' => [
-                    'id' => $verification->user->id,
-                    'name' => $verification->user->name,
-                    'email' => $verification->user->email,
-                    'email_verified_at' => $verification->user->email_verified_at,
-                    'role' => $verification->user->role
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'email_verified_at' => $user->email_verified_at,
+                    'role' => $user->role
                 ]
             ]);
         }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../services/api_service.dart';
+import '../../main.dart';
 import 'login_screen.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
@@ -202,8 +204,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
         );
         
-        // Email doğrulaması başarılı - direkt login ekranına yönlendir
+        // Email doğrulaması başarılı - AuthBloc'u güncellea
         if (mounted) {
+          // AuthBloc'u güncelle
+          context.read<AuthBloc>().add(const AuthEmailVerified());
+          
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('E-posta doğrulandı! Şimdi giriş yapabilirsiniz.'),
@@ -229,6 +234,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       if (mounted) {
         // E-posta zaten doğrulanmış hatası için özel durum
         if (e.toString().contains('ALREADY_VERIFIED') || e.toString().contains('zaten doğrulanmış')) {
+          // AuthBloc'u güncelle
+          context.read<AuthBloc>().add(const AuthEmailVerified());
+          
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('E-posta zaten doğrulanmış! Ana sayfaya yönlendiriliyorsunuz...'),

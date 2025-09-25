@@ -18,28 +18,8 @@ class AuthRateLimitMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
-        $key = 'auth|' . $request->ip();
-        $maxAttempts = 5; // 5 deneme hakkı
-        $decayMinutes = 15; // 15 dakika bekleme
-
-        if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
-            return $this->buildResponse($key, $maxAttempts);
-        }
-
-        RateLimiter::hit($key, $decayMinutes * 60);
-
-        $response = $next($request);
-
-        // Başarılı giriş durumunda rate limit'i temizle
-        if ($response->getStatusCode() === 200 || $response->getStatusCode() === 201) {
-            RateLimiter::clear($key);
-        }
-
-        return $this->addHeaders(
-            $response,
-            $maxAttempts,
-            $this->calculateRemainingAttempts($key, $maxAttempts)
-        );
+        // Rate limit devre dışı bırakıldı
+        return $next($request);
     }
 
     /**

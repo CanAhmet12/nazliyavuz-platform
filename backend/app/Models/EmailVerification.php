@@ -90,18 +90,42 @@ class EmailVerification extends Model
      */
     public function verifyWithCode(string $code): bool
     {
-        if ($this->isExpired() || $this->verified_at) {
+        \Log::info("🔍 EmailVerification::verifyWithCode called with code: " . $code);
+        \Log::info("🔍 Current verification_code: " . $this->verification_code);
+        \Log::info("🔍 Is expired: " . ($this->isExpired() ? 'YES' : 'NO'));
+        \Log::info("🔍 Already verified: " . ($this->verified_at ? 'YES' : 'NO'));
+        
+        if ($this->isExpired()) {
+            \Log::error("❌ Verification code expired");
             return false;
         }
 
         if ($this->verification_code !== $code) {
+            \Log::error("❌ Verification code mismatch");
             return false;
         }
 
+        // Zaten doğrulanmışsa da true döndür
+        if ($this->verified_at) {
+            \Log::info("✅ Already verified, updating user email_verified_at");
+            // User'ın email_verified_at'ini kontrol et ve güncelle
+            if (!$this->user->email_verified_at) {
+                $this->user->update(['email_verified_at' => Carbon::now()]);
+                $this->user->refresh(); // User model'ini yeniden yükle
+                \Log::info("✅ User email_verified_at updated");
+            }
+            return true;
+        }
+
+        \Log::info("🔄 Updating verification record");
         $this->update(['verified_at' => Carbon::now()]);
         
+        \Log::info("🔄 Updating user email_verified_at");
         // User'ın email_verified_at'ini güncelle
         $this->user->update(['email_verified_at' => Carbon::now()]);
+        $this->user->refresh(); // User model'ini yeniden yükle
+        
+        \Log::info("✅ Verification completed successfully");
 
         return true;
     }
@@ -113,7 +137,6 @@ class EmailVerification extends Model
     {
         return self::where('verification_code', $code)
             ->where('expires_at', '>', Carbon::now())
-            ->whereNull('verified_at')
-            ->first();
+            ->first(); // verified_at kontrolünü kaldırdık
     }
 }
