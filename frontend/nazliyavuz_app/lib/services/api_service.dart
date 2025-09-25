@@ -14,7 +14,7 @@ import '../models/message.dart';
 
 class ApiService {
   static const String baseUrl = kDebugMode 
-      ? 'https://8000-cs-xxxxx.cloudshell.dev/api/v1'  // Google Cloud Shell
+      ? 'https://nazliyavuz-backend-1050061286516.europe-west4.run.app/api/v1'  // Cloud Run
       : 'https://api.nazliyavuz.com/v1';    // Production
   late Dio _dio;
   String? _token;
