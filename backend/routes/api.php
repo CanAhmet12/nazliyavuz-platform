@@ -200,6 +200,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/admin/categories', [AdminController::class, 'createCategory']);
             Route::get('/admin/audit-logs', [AdminController::class, 'getAuditLogs']);
             
+            // User management routes
+            Route::get('/admin/users', [AdminController::class, 'listUsers']);
+            Route::get('/admin/users/search', [AdminController::class, 'searchUsers']);
+            Route::delete('/admin/users/{id}', [AdminController::class, 'deleteUser']);
+            Route::delete('/admin/users', [AdminController::class, 'deleteMultipleUsers']);
+            Route::delete('/admin/users/by-name', [AdminController::class, 'deleteUsersByName']);
+            
             // Teacher approval routes
             Route::get('/admin/teachers/pending', [AdminController::class, 'getPendingTeachers']);
             Route::post('/admin/teachers/{user}/approve', [AdminController::class, 'approveTeacher']);
