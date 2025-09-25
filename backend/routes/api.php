@@ -193,14 +193,13 @@ Route::prefix('v1')->group(function () {
         Route::middleware('role:admin')->group(function () {
             Route::get('/admin/dashboard', [AdminController::class, 'dashboard']);
             Route::get('/admin/analytics', [AdminController::class, 'getAnalytics']);
-            Route::get('/admin/users', [AdminController::class, 'getUsers']);
             Route::put('/admin/users/{user}/status', [AdminController::class, 'updateUserStatus']);
             Route::get('/admin/reservations', [AdminController::class, 'getReservations']);
             Route::get('/admin/categories', [AdminController::class, 'getCategories']);
             Route::post('/admin/categories', [AdminController::class, 'createCategory']);
             Route::get('/admin/audit-logs', [AdminController::class, 'getAuditLogs']);
             
-            // User management routes (temporarily without admin middleware for testing)
+            // User management routes (new endpoints)
             Route::get('/admin/users', [AdminController::class, 'listUsers']);
             Route::get('/admin/users/search', [AdminController::class, 'searchUsers']);
             Route::delete('/admin/users/{id}', [AdminController::class, 'deleteUser']);
