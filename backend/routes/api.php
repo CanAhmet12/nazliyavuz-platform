@@ -200,7 +200,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/admin/categories', [AdminController::class, 'createCategory']);
             Route::get('/admin/audit-logs', [AdminController::class, 'getAuditLogs']);
             
-            // User management routes
+            // User management routes (temporarily without admin middleware for testing)
             Route::get('/admin/users', [AdminController::class, 'listUsers']);
             Route::get('/admin/users/search', [AdminController::class, 'searchUsers']);
             Route::delete('/admin/users/{id}', [AdminController::class, 'deleteUser']);

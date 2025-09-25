@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -17,7 +17,7 @@ use App\Services\CacheService;
 /**
  * @OA\Tag(
  *     name="Admin",
- *     description="Admin paneli ve moderasyon işlemleri"
+ *     description="Admin paneli ve moderasyon i┼şlemleri"
  * )
  */
 class AdminController extends Controller
@@ -33,11 +33,11 @@ class AdminController extends Controller
      *     path="/admin/dashboard",
      *     tags={"Admin"},
      *     summary="Admin dashboard istatistikleri",
-     *     description="Admin paneli için genel istatistikleri getirir",
+     *     description="Admin paneli i├ğin genel istatistikleri getirir",
      *     security={{"bearerAuth":{}}},
      *     @OA\Response(
      *         response=200,
-     *         description="Dashboard verileri başarıyla getirildi",
+     *         description="Dashboard verileri ba┼şar─▒yla getirildi",
      *         @OA\JsonContent(
      *             @OA\Property(property="stats", type="object"),
      *             @OA\Property(property="recent_activities", type="array", @OA\Items(type="object"))
@@ -47,7 +47,7 @@ class AdminController extends Controller
      */
     public function dashboard(): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $stats = [
             'total_users' => User::count(),
@@ -75,30 +75,30 @@ class AdminController extends Controller
      * @OA\Get(
      *     path="/admin/users",
      *     tags={"Admin"},
-     *     summary="Kullanıcı listesi",
-     *     description="Tüm kullanıcıları listeler ve filtreler",
+     *     summary="Kullan─▒c─▒ listesi",
+     *     description="T├╝m kullan─▒c─▒lar─▒ listeler ve filtreler",
      *     security={{"bearerAuth":{}}},
      *     @OA\Parameter(
      *         name="role",
      *         in="query",
-     *         description="Kullanıcı rolü filtresi",
+     *         description="Kullan─▒c─▒ rol├╝ filtresi",
      *         @OA\Schema(type="string", enum={"student","teacher","admin"})
      *     ),
      *     @OA\Parameter(
      *         name="status",
      *         in="query",
-     *         description="Kullanıcı durumu filtresi",
+     *         description="Kullan─▒c─▒ durumu filtresi",
      *         @OA\Schema(type="string", enum={"active","inactive","pending"})
      *     ),
      *     @OA\Parameter(
      *         name="page",
      *         in="query",
-     *         description="Sayfa numarası",
+     *         description="Sayfa numaras─▒",
      *         @OA\Schema(type="integer", default=1)
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Kullanıcılar başarıyla getirildi",
+     *         description="Kullan─▒c─▒lar ba┼şar─▒yla getirildi",
      *         @OA\JsonContent(
      *             @OA\Property(property="data", type="array", @OA\Items(type="object")),
      *             @OA\Property(property="meta", type="object")
@@ -108,7 +108,7 @@ class AdminController extends Controller
      */
     public function getUsers(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $query = User::query();
 
@@ -151,14 +151,14 @@ class AdminController extends Controller
      * @OA\Put(
      *     path="/admin/users/{user}/status",
      *     tags={"Admin"},
-     *     summary="Kullanıcı durumu güncelle",
-     *     description="Kullanıcının durumunu günceller (aktif/pasif)",
+     *     summary="Kullan─▒c─▒ durumu g├╝ncelle",
+     *     description="Kullan─▒c─▒n─▒n durumunu g├╝nceller (aktif/pasif)",
      *     security={{"bearerAuth":{}}},
      *     @OA\Parameter(
      *         name="user",
      *         in="path",
      *         required=true,
-     *         description="Kullanıcı ID",
+     *         description="Kullan─▒c─▒ ID",
      *         @OA\Schema(type="integer")
      *     ),
      *     @OA\RequestBody(
@@ -170,9 +170,9 @@ class AdminController extends Controller
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Kullanıcı durumu başarıyla güncellendi",
+     *         description="Kullan─▒c─▒ durumu ba┼şar─▒yla g├╝ncellendi",
      *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Kullanıcı durumu güncellendi"),
+     *             @OA\Property(property="message", type="string", example="Kullan─▒c─▒ durumu g├╝ncellendi"),
      *             @OA\Property(property="user", type="object")
      *         )
      *     )
@@ -180,7 +180,7 @@ class AdminController extends Controller
      */
     public function updateUserStatus(Request $request, User $user): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $request->validate([
             'status' => 'required|in:active,inactive,suspended',
@@ -197,7 +197,7 @@ class AdminController extends Controller
                 break;
             case 'suspended':
                 $user->update(['verified_at' => null]);
-                // İleride suspended_at field'ı eklenebilir
+                // ─░leride suspended_at field'─▒ eklenebilir
                 break;
         }
 
@@ -214,7 +214,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Kullanıcı durumu güncellendi',
+            'message' => 'Kullan─▒c─▒ durumu g├╝ncellendi',
             'user' => $user->fresh(),
         ]);
     }
@@ -224,7 +224,7 @@ class AdminController extends Controller
      *     path="/admin/reservations",
      *     tags={"Admin"},
      *     summary="Rezervasyon listesi",
-     *     description="Tüm rezervasyonları listeler ve filtreler",
+     *     description="T├╝m rezervasyonlar─▒ listeler ve filtreler",
      *     security={{"bearerAuth":{}}},
      *     @OA\Parameter(
      *         name="status",
@@ -234,7 +234,7 @@ class AdminController extends Controller
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Rezervasyonlar başarıyla getirildi",
+     *         description="Rezervasyonlar ba┼şar─▒yla getirildi",
      *         @OA\JsonContent(
      *             @OA\Property(property="data", type="array", @OA\Items(type="object"))
      *         )
@@ -243,7 +243,7 @@ class AdminController extends Controller
      */
     public function getReservations(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $query = Reservation::with(['student', 'teacher.user', 'category']);
 
@@ -268,12 +268,12 @@ class AdminController extends Controller
      * @OA\Get(
      *     path="/admin/categories",
      *     tags={"Admin"},
-     *     summary="Kategori yönetimi",
-     *     description="Kategorileri listeler ve yönetir",
+     *     summary="Kategori y├Ânetimi",
+     *     description="Kategorileri listeler ve y├Ânetir",
      *     security={{"bearerAuth":{}}},
      *     @OA\Response(
      *         response=200,
-     *         description="Kategoriler başarıyla getirildi",
+     *         description="Kategoriler ba┼şar─▒yla getirildi",
      *         @OA\JsonContent(
      *             @OA\Property(property="data", type="array", @OA\Items(type="object"))
      *         )
@@ -282,7 +282,7 @@ class AdminController extends Controller
      */
     public function getCategories(): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $categories = Category::with('children')
             ->whereNull('parent_id')
@@ -298,8 +298,8 @@ class AdminController extends Controller
      * @OA\Post(
      *     path="/admin/categories",
      *     tags={"Admin"},
-     *     summary="Yeni kategori oluştur",
-     *     description="Yeni kategori oluşturur",
+     *     summary="Yeni kategori olu┼ştur",
+     *     description="Yeni kategori olu┼şturur",
      *     security={{"bearerAuth":{}}},
      *     @OA\RequestBody(
      *         required=true,
@@ -315,9 +315,9 @@ class AdminController extends Controller
      *     ),
      *     @OA\Response(
      *         response=201,
-     *         description="Kategori başarıyla oluşturuldu",
+     *         description="Kategori ba┼şar─▒yla olu┼şturuldu",
      *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Kategori oluşturuldu"),
+     *             @OA\Property(property="message", type="string", example="Kategori olu┼şturuldu"),
      *             @OA\Property(property="category", type="object")
      *         )
      *     )
@@ -325,7 +325,7 @@ class AdminController extends Controller
      */
     public function createCategory(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -348,7 +348,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Kategori oluşturuldu',
+            'message' => 'Kategori olu┼şturuldu',
             'category' => $category,
         ], 201);
     }
@@ -368,7 +368,7 @@ class AdminController extends Controller
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Audit loglar başarıyla getirildi",
+     *         description="Audit loglar ba┼şar─▒yla getirildi",
      *         @OA\JsonContent(
      *             @OA\Property(property="data", type="array", @OA\Items(type="object"))
      *         )
@@ -377,7 +377,7 @@ class AdminController extends Controller
      */
     public function getAuditLogs(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $query = AuditLog::with('user');
 
@@ -403,7 +403,7 @@ class AdminController extends Controller
      */
     public function getAnalytics(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $period = $request->get('period', 30); // days
         $startDate = now()->subDays($period);
@@ -434,7 +434,7 @@ class AdminController extends Controller
      */
     public function getPendingTeachers(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $query = User::where('role', 'teacher')
             ->where('teacher_status', 'pending')
@@ -459,13 +459,13 @@ class AdminController extends Controller
      */
     public function approveTeacher(Request $request, User $user): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         if ($user->role !== 'teacher') {
             return response()->json([
                 'error' => [
                     'code' => 'INVALID_USER',
-                    'message' => 'Bu kullanıcı öğretmen değil'
+                    'message' => 'Bu kullan─▒c─▒ ├Â─şretmen de─şil'
                 ]
             ], 400);
         }
@@ -474,7 +474,7 @@ class AdminController extends Controller
             return response()->json([
                 'error' => [
                     'code' => 'INVALID_STATUS',
-                    'message' => 'Bu öğretmen zaten işleme alınmış'
+                    'message' => 'Bu ├Â─şretmen zaten i┼şleme al─▒nm─▒┼ş'
                 ]
             ], 400);
         }
@@ -484,11 +484,11 @@ class AdminController extends Controller
 
         $user->approveTeacher($adminId, $notes);
 
-        // Bildirim gönder
+        // Bildirim g├Ânder
         $user->notifications()->create([
             'type' => 'teacher_approved',
-            'title' => 'Öğretmen Profiliniz Onaylandı',
-            'message' => 'Tebrikler! Öğretmen profiliniz admin tarafından onaylandı. Artık öğrenciler sizi bulabilir.',
+            'title' => '├û─şretmen Profiliniz Onayland─▒',
+            'message' => 'Tebrikler! ├û─şretmen profiliniz admin taraf─▒ndan onayland─▒. Art─▒k ├Â─şrenciler sizi bulabilir.',
             'data' => [
                 'teacher_id' => $user->id,
                 'approved_at' => now()->toISOString(),
@@ -496,7 +496,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Öğretmen başarıyla onaylandı',
+            'message' => '├û─şretmen ba┼şar─▒yla onayland─▒',
             'teacher' => $user->load('teacher')
         ]);
     }
@@ -506,13 +506,13 @@ class AdminController extends Controller
      */
     public function rejectTeacher(Request $request, User $user): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         if ($user->role !== 'teacher') {
             return response()->json([
                 'error' => [
                     'code' => 'INVALID_USER',
-                    'message' => 'Bu kullanıcı öğretmen değil'
+                    'message' => 'Bu kullan─▒c─▒ ├Â─şretmen de─şil'
                 ]
             ], 400);
         }
@@ -521,7 +521,7 @@ class AdminController extends Controller
             return response()->json([
                 'error' => [
                     'code' => 'INVALID_STATUS',
-                    'message' => 'Bu öğretmen zaten işleme alınmış'
+                    'message' => 'Bu ├Â─şretmen zaten i┼şleme al─▒nm─▒┼ş'
                 ]
             ], 400);
         }
@@ -546,11 +546,11 @@ class AdminController extends Controller
 
         $user->rejectTeacher($adminId, $reason, $notes);
 
-        // Bildirim gönder
+        // Bildirim g├Ânder
         $user->notifications()->create([
             'type' => 'teacher_rejected',
-            'title' => 'Öğretmen Profili Reddedildi',
-            'message' => 'Maalesef öğretmen profiliniz reddedildi. Detaylar için profil sayfanızı kontrol edin.',
+            'title' => '├û─şretmen Profili Reddedildi',
+            'message' => 'Maalesef ├Â─şretmen profiliniz reddedildi. Detaylar i├ğin profil sayfan─▒z─▒ kontrol edin.',
             'data' => [
                 'teacher_id' => $user->id,
                 'rejection_reason' => $reason,
@@ -559,7 +559,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Öğretmen reddedildi',
+            'message' => '├û─şretmen reddedildi',
             'teacher' => $user->load('teacher')
         ]);
     }
@@ -645,7 +645,7 @@ class AdminController extends Controller
      */
     public function updateCategory(Request $request, Category $category): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -669,7 +669,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Kategori güncellendi',
+            'message' => 'Kategori g├╝ncellendi',
             'category' => $category,
         ]);
     }
@@ -679,14 +679,14 @@ class AdminController extends Controller
      */
     public function deleteCategory(Category $category): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         // Check if category has children
         if ($category->children()->count() > 0) {
             return response()->json([
                 'error' => [
                     'code' => 'HAS_CHILDREN',
-                    'message' => 'Bu kategorinin alt kategorileri var, önce onları silin'
+                    'message' => 'Bu kategorinin alt kategorileri var, ├Ânce onlar─▒ silin'
                 ]
             ], 400);
         }
@@ -696,7 +696,7 @@ class AdminController extends Controller
             return response()->json([
                 'error' => [
                     'code' => 'HAS_TEACHERS',
-                    'message' => 'Bu kategoride öğretmenler var, önce onları taşıyın'
+                    'message' => 'Bu kategoride ├Â─şretmenler var, ├Ânce onlar─▒ ta┼ş─▒y─▒n'
                 ]
             ], 400);
         }
@@ -722,7 +722,7 @@ class AdminController extends Controller
      */
     public function updateReservation(Request $request, Reservation $reservation): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $request->validate([
             'status' => 'required|in:pending,accepted,rejected,cancelled,completed',
@@ -749,7 +749,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Rezervasyon güncellendi',
+            'message' => 'Rezervasyon g├╝ncellendi',
             'reservation' => $reservation,
         ]);
     }
@@ -759,7 +759,7 @@ class AdminController extends Controller
      */
     public function deleteReservation(Reservation $reservation): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $reservation->delete();
 
@@ -782,14 +782,14 @@ class AdminController extends Controller
      */
     public function deleteUser(User $user): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         // Prevent admin from deleting themselves
         if ($user->id === Auth::id()) {
             return response()->json([
                 'error' => [
                     'code' => 'CANNOT_DELETE_SELF',
-                    'message' => 'Kendi hesabınızı silemezsiniz'
+                    'message' => 'Kendi hesab─▒n─▒z─▒ silemezsiniz'
                 ]
             ], 400);
         }
@@ -806,7 +806,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Kullanıcı silindi'
+            'message' => 'Kullan─▒c─▒ silindi'
         ]);
     }
 
@@ -815,7 +815,7 @@ class AdminController extends Controller
      */
     public function suspendUser(Request $request, User $user): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $request->validate([
             'reason' => 'required|string|max:500',
@@ -847,7 +847,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Kullanıcı askıya alındı',
+            'message' => 'Kullan─▒c─▒ ask─▒ya al─▒nd─▒',
             'user' => $user,
         ]);
     }
@@ -857,7 +857,7 @@ class AdminController extends Controller
      */
     public function unsuspendUser(User $user): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $user->update([
             'verified_at' => now(),
@@ -876,7 +876,7 @@ class AdminController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Kullanıcı askıdan çıkarıldı',
+            'message' => 'Kullan─▒c─▒ ask─▒dan ├ğ─▒kar─▒ld─▒',
             'user' => $user,
         ]);
     }
@@ -886,7 +886,7 @@ class AdminController extends Controller
      */
     public function getSystemHealth(): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $health = [
             'database' => $this->checkDatabaseHealth(),
@@ -959,7 +959,7 @@ class AdminController extends Controller
      */
     public function getSystemLogs(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $request->validate([
             'level' => 'sometimes|in:emergency,alert,critical,error,warning,notice,info,debug',
@@ -996,7 +996,7 @@ class AdminController extends Controller
      */
     public function clearCache(): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         try {
             \Cache::flush();
@@ -1006,12 +1006,12 @@ class AdminController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Cache başarıyla temizlendi',
+                'message' => 'Cache ba┼şar─▒yla temizlendi',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cache temizlenirken hata oluştu: ' . $e->getMessage(),
+                'message' => 'Cache temizlenirken hata olu┼ştu: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1021,7 +1021,7 @@ class AdminController extends Controller
      */
     public function getBackupStatus(): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         // This would typically check backup service status
         $backupStatus = [
@@ -1042,7 +1042,7 @@ class AdminController extends Controller
      */
     public function sendSystemNotification(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $request->validate([
             'title' => 'required|string|max:255',
@@ -1079,7 +1079,7 @@ class AdminController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Sistem bildirimi gönderildi',
+            'message' => 'Sistem bildirimi g├Ânderildi',
             'data' => [
                 'recipients' => $users->count(),
                 'notification' => $notificationData,
@@ -1092,7 +1092,7 @@ class AdminController extends Controller
      */
     public function getUserStatistics(): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $stats = [
             'total_users' => User::count(),
@@ -1118,7 +1118,7 @@ class AdminController extends Controller
      */
     public function exportUsers(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
+        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
 
         $request->validate([
             'format' => 'required|in:csv,json,xlsx',
@@ -1156,12 +1156,165 @@ class AdminController extends Controller
         // For now, we'll return the data directly
         return response()->json([
             'success' => true,
-            'message' => 'Kullanıcı verileri hazırlandı',
+            'message' => 'Kullan─▒c─▒ verileri haz─▒rland─▒',
             'data' => [
                 'format' => $request->get('format'),
                 'count' => $users->count(),
                 'users' => $users->toArray(),
             ],
+        ]);
+    }
+
+    /**
+     * Tüm kullanıcıları listele (Yeni Kullanıcı Yönetimi)
+     */
+    public function listUsers(Request $request): JsonResponse
+    {
+        $query = User::query();
+        
+        // Sayfalama
+        $perPage = $request->get('per_page', 15);
+        $page = $request->get('page', 1);
+        
+        // Arama
+        if ($request->has('search')) {
+            $search = $request->get('search');
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
+        }
+        
+        // Role filtresi
+        if ($request->has('role')) {
+            $query->where('role', $request->get('role'));
+        }
+        
+        $users = $query->orderBy('created_at', 'desc')
+                      ->paginate($perPage);
+        
+        return response()->json([
+            'users' => $users->items(),
+            'pagination' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+            ]
+        ]);
+    }
+    
+    /**
+     * Kullanıcı ara (Yeni Kullanıcı Yönetimi)
+     */
+    public function searchUsers(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|min:1'
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $validator->errors()
+                ]
+            ], 400);
+        }
+        
+        $name = $request->get('name');
+        
+        $users = User::where('name', 'LIKE', "%{$name}%")
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+        
+        return response()->json([
+            'users' => $users,
+            'count' => $users->count()
+        ]);
+    }
+    
+    /**
+     * Toplu kullanıcı silme (Yeni Kullanıcı Yönetimi)
+     */
+    public function deleteMultipleUsers(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'integer|exists:users,id'
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $validator->errors()
+                ]
+            ], 400);
+        }
+        
+        $userIds = $request->get('user_ids');
+        
+        // Admin kendini silemez
+        if (in_array(auth()->id(), $userIds)) {
+            return response()->json([
+                'error' => [
+                    'code' => 'CANNOT_DELETE_SELF',
+                    'message' => 'Kendi hesabınızı silemezsiniz'
+                ]
+            ], 400);
+        }
+        
+        $users = User::whereIn('id', $userIds)->get();
+        $deletedCount = $users->count();
+        
+        User::whereIn('id', $userIds)->delete();
+        
+        return response()->json([
+            'message' => "{$deletedCount} kullanıcı başarıyla silindi"
+        ]);
+    }
+    
+    /**
+     * İsme göre kullanıcıları sil (Yeni Kullanıcı Yönetimi)
+     */
+    public function deleteUsersByName(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|min:1'
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $validator->errors()
+                ]
+            ], 400);
+        }
+        
+        $name = $request->get('name');
+        
+        $users = User::where('name', 'LIKE', "%{$name}%")
+                    ->where('id', '!=', auth()->id()) // Admin kendini silemesin
+                    ->get();
+        
+        if ($users->isEmpty()) {
+            return response()->json([
+                'message' => "'{$name}' isimli kullanıcı bulunamadı"
+            ]);
+        }
+        
+        $deletedCount = $users->count();
+        $userNames = $users->pluck('name')->toArray();
+        
+        User::where('name', 'LIKE', "%{$name}%")
+            ->where('id', '!=', auth()->id())
+            ->delete();
+        
+        return response()->json([
+            'message' => "{$deletedCount} kullanıcı silindi",
+            'deleted_users' => $userNames
         ]);
     }
 
