@@ -23,6 +23,7 @@ class User extends Authenticatable implements JWTSubject
         'role',
         'profile_photo_url',
         'verified_at',
+        'email_verified_at',
         'fcm_tokens',
         'suspended_at',
         'suspended_until',
