@@ -24,9 +24,9 @@ class AdminController extends Controller
 {
     protected CacheService $cacheService;
 
-    public function __construct(CacheService $cacheService)
+    public function __construct()
     {
-        $this->cacheService = $cacheService;
+        // Cache service temporarily disabled for deployment
     }
     /**
      * @OA\Get(

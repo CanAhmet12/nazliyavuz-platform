@@ -205,7 +205,7 @@ class TeacherController extends Controller
         $result = $teacher->toArray();
         
         // Cache the result
-        $this->cacheService->cacheTeacher($teacher->id, $result, CacheService::MEDIUM_TERM);
+        // Cache temporarily disabled
 
         return response()->json($teacher);
     }
