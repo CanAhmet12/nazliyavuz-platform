@@ -11,7 +11,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register CacheService
+        $this->app->singleton(\App\Services\CacheService::class, function ($app) {
+            return new \App\Services\CacheService();
+        });
+        
+        // Register MailService
+        $this->app->singleton(\App\Services\MailService::class, function ($app) {
+            return new \App\Services\MailService();
+        });
     }
 
     /**
