@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use App\Services\SmartCacheService;
 use App\Services\DatabaseOptimizerService;
 use App\Services\PerformanceMonitoringService;
@@ -27,25 +28,58 @@ class TeacherController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        // Create cache key based on request parameters
-        $cacheKey = 'teachers:' . md5(serialize($request->all()));
-        
-        // Try to get from cache first
-        $cachedResult = $this->cacheService->getCachedSearchResults($cacheKey, $request->all());
-        if ($cachedResult) {
-            return response()->json($cachedResult);
-        }
+        Log::info('🚀 TeacherController::index STARTED', [
+            'request_params' => $request->all(),
+            'timestamp' => now(),
+            'user_agent' => $request->userAgent()
+        ]);
 
-        $query = Teacher::with(['user', 'categories'])
-            ->whereHas('user', function ($q) {
-                $q->where('role', 'teacher');
-            });
+        try {
+            // Create cache key based on request parameters
+            $cacheKey = 'teachers:' . md5(serialize($request->all()));
+            Log::info('📝 Cache key created', ['cache_key' => $cacheKey]);
+            
+            // Try to get from cache first
+            Log::info('🔍 Checking cache for results...');
+            $cachedResult = $this->cacheService->getCachedSearchResults($cacheKey, $request->all());
+            if ($cachedResult) {
+                Log::info('✅ Cache hit - returning cached results');
+                return response()->json($cachedResult);
+            }
+            Log::info('❌ Cache miss - proceeding with database query');
+
+            Log::info('🗄️ Starting database query...');
+            $query = Teacher::with(['user', 'categories'])
+                ->whereHas('user', function ($q) {
+                    $q->where('role', 'teacher');
+                });
+            Log::info('✅ Base query created with relationships');
+
+        } catch (\Exception $e) {
+            Log::error('💥 CRITICAL ERROR in TeacherController::index', [
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'Internal server error', 'details' => $e->getMessage()], 500);
+        }
 
         // Kategori filtresi
         if ($request->has('category')) {
-            $query->whereHas('categories', function ($q) use ($request) {
-                $q->where('slug', $request->category);
-            });
+            Log::info('🏷️ Applying category filter', ['category' => $request->category]);
+            try {
+                $query->whereHas('categories', function ($q) use ($request) {
+                    $q->where('slug', $request->category);
+                });
+                Log::info('✅ Category filter applied successfully');
+            } catch (\Exception $e) {
+                Log::error('💥 ERROR in category filter', [
+                    'error' => $e->getMessage(),
+                    'category' => $request->category
+                ]);
+                throw $e;
+            }
         }
 
         // Seviye filtresi (gelecekte eklenebilir)
@@ -105,26 +139,60 @@ class TeacherController extends Controller
         }
 
         // Sayfalama
+        Log::info('📄 Starting pagination', ['per_page' => $request->get('per_page', 20)]);
         $perPage = $request->get('per_page', 20);
-        $teachers = $query->paginate($perPage);
+        
+        try {
+            Log::info('🗄️ Executing database query with pagination...');
+            $teachers = $query->paginate($perPage);
+            Log::info('✅ Database query executed successfully', [
+                'found_teachers' => $teachers->count(),
+                'total_teachers' => $teachers->total(),
+                'current_page' => $teachers->currentPage()
+            ]);
+        } catch (\Exception $e) {
+            Log::error('💥 CRITICAL ERROR during database query execution', [
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'per_page' => $perPage,
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
 
-        \Log::info('🔄 Teachers API called - Found ' . $teachers->count() . ' teachers');
-        \Log::info('📊 Teachers data: ' . json_encode($teachers->items()));
+        Log::info('📦 Preparing response data...');
+        try {
+            $result = [
+                'data' => $teachers->items(),
+                'meta' => [
+                    'current_page' => $teachers->currentPage(),
+                    'last_page' => $teachers->lastPage(),
+                    'per_page' => $teachers->perPage(),
+                    'total' => $teachers->total(),
+                ]
+            ];
+            Log::info('✅ Response data prepared successfully', [
+                'data_count' => count($result['data']),
+                'meta' => $result['meta']
+            ]);
 
-        $result = [
-            'data' => $teachers->items(),
-            'meta' => [
-                'current_page' => $teachers->currentPage(),
-                'last_page' => $teachers->lastPage(),
-                'per_page' => $teachers->perPage(),
-                'total' => $teachers->total(),
-            ]
-        ];
+            // Cache the result
+            Log::info('💾 Caching results...');
+            $this->cacheService->cacheSearchResults($cacheKey, $request->all(), $result, CacheService::SHORT_TERM);
+            Log::info('✅ Results cached successfully');
 
-        // Cache the result
-        $this->cacheService->cacheSearchResults($cacheKey, $request->all(), $result, CacheService::SHORT_TERM);
-
-        return response()->json($result);
+            Log::info('🎉 TeacherController::index COMPLETED SUCCESSFULLY');
+            return response()->json($result);
+            
+        } catch (\Exception $e) {
+            Log::error('💥 ERROR during response preparation', [
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine()
+            ]);
+            throw $e;
+        }
     }
 
     /**
