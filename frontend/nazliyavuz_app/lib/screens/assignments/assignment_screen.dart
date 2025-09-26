@@ -108,7 +108,6 @@ class _AssignmentScreenState extends State<AssignmentScreen> {
           await _apiService.submitAssignment(
             assignment.id,
             file.path!,
-            file.name,
             notes ?? '',
           );
 

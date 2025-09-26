@@ -5,7 +5,7 @@ import '../../main.dart';
 import '../../models/user.dart';
 import '../teachers/enhanced_teachers_screen.dart';
 import '../lessons/enhanced_lessons_screen.dart';
-import '../reservations/reservations_screen.dart';
+import '../reservations/enhanced_reservations_screen.dart';
 import '../profile/enhanced_profile_screen.dart';
 import '../search/search_screen.dart';
 import '../notifications/notification_screen.dart';
@@ -32,6 +32,9 @@ class _HomeScreenState extends State<HomeScreen>
   late PageController _pageController;
   late AnimationController _fabAnimationController;
   late Animation<double> _fabAnimation;
+  
+  // Performance optimization - cache featured teachers
+  Future<List<Teacher>>? _featuredTeachersFuture;
 
   @override
   void initState() {
@@ -49,6 +52,9 @@ class _HomeScreenState extends State<HomeScreen>
       curve: Curves.easeInOut,
     ));
     _fabAnimationController.forward();
+    
+    // Initialize featured teachers cache
+    _featuredTeachersFuture = _getFeaturedTeachers();
   }
 
   @override
@@ -116,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withOpacity( 0.08),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -165,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryBlue.withValues(alpha: 0.08) : Colors.transparent,
+          color: isSelected ? AppTheme.primaryBlue.withOpacity( 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -295,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen>
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const ReservationsScreen(),
+                            builder: (context) => const EnhancedReservationsScreen(),
                           ),
                         );
                       },
@@ -360,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen>
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity( 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -472,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen>
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
+                          color: Colors.black.withOpacity( 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -504,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen>
                         Text(
                           'Merhaba,',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: Colors.white.withOpacity( 0.8),
                             fontSize: 12,
                           ),
                         ),
@@ -527,7 +533,7 @@ class _HomeScreenState extends State<HomeScreen>
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity( 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(
@@ -552,7 +558,7 @@ class _HomeScreenState extends State<HomeScreen>
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity( 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(
@@ -599,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryBlue.withValues(alpha: 0.3),
+            color: AppTheme.primaryBlue.withOpacity( 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -611,10 +617,10 @@ class _HomeScreenState extends State<HomeScreen>
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withOpacity( 0.2),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: Colors.white.withOpacity( 0.3),
                 width: 1,
               ),
             ),
@@ -653,7 +659,7 @@ class _HomeScreenState extends State<HomeScreen>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withOpacity( 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -719,7 +725,7 @@ class _HomeScreenState extends State<HomeScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ReservationsScreen(),
+                      builder: (context) => const EnhancedReservationsScreen(),
                     ),
                   );
                 },
@@ -785,7 +791,7 @@ class _HomeScreenState extends State<HomeScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity( 0.1),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -798,7 +804,7 @@ class _HomeScreenState extends State<HomeScreen>
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: color.withOpacity( 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -889,7 +895,7 @@ class _HomeScreenState extends State<HomeScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.08),
+            color: color.withOpacity( 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -904,7 +910,7 @@ class _HomeScreenState extends State<HomeScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -917,7 +923,7 @@ class _HomeScreenState extends State<HomeScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -974,14 +980,14 @@ class _HomeScreenState extends State<HomeScreen>
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ReservationsScreen(),
+                    builder: (context) => const EnhancedReservationsScreen(),
                   ),
                 );
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                  color: const Color(0xFF3B82F6).withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
@@ -1004,7 +1010,7 @@ class _HomeScreenState extends State<HomeScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withOpacity( 0.04),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -1061,7 +1067,7 @@ class _HomeScreenState extends State<HomeScreen>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
+              color: iconColor.withOpacity( 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -1101,7 +1107,7 @@ class _HomeScreenState extends State<HomeScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
+                  color: statusColor.withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1156,7 +1162,7 @@ class _HomeScreenState extends State<HomeScreen>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                  color: const Color(0xFF3B82F6).withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
@@ -1198,9 +1204,9 @@ class _HomeScreenState extends State<HomeScreen>
           return const SizedBox.shrink();
         }
         
-        // Get teachers from API
+        // Get teachers from API (cached)
         return FutureBuilder<List<Teacher>>(
-          future: _getFeaturedTeachers(),
+          future: _featuredTeachersFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Container(
@@ -1228,7 +1234,9 @@ class _HomeScreenState extends State<HomeScreen>
             final teacher = teachers[index];
             final color = _getTeacherColor(index);
             
-            return _buildTeacherCard(teacher, color);
+            return RepaintBoundary(
+              child: _buildTeacherCard(teacher, color),
+            );
           },
         );
       },
@@ -1274,7 +1282,7 @@ class _HomeScreenState extends State<HomeScreen>
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -1292,7 +1300,7 @@ class _HomeScreenState extends State<HomeScreen>
                   end: Alignment.bottomRight,
                   colors: [
                     color,
-                    color.withValues(alpha: 0.8),
+                    color.withOpacity(0.8),
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1309,7 +1317,7 @@ class _HomeScreenState extends State<HomeScreen>
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: Colors.white.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -1323,7 +1331,7 @@ class _HomeScreenState extends State<HomeScreen>
                         borderRadius: BorderRadius.circular(25),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
+                            color: Colors.black.withOpacity(0.1),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -1398,7 +1406,7 @@ class _HomeScreenState extends State<HomeScreen>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.1),
+                          color: color.withOpacity( 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(

@@ -194,7 +194,8 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
       final categories = await _apiService.getCategories();
       if (mounted) {
         setState(() {
-          _categories = categories;
+          // Sadece ana kategorileri göster
+          _categories = categories.where((cat) => cat.parentId == null).toList();
         });
       }
     } catch (e) {
@@ -249,8 +250,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: _buildAppBar(),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SlideTransition(
@@ -261,24 +261,37 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                // Statistics Banner
+                // Enhanced App Bar
+                _buildSliverAppBar(),
+                
+                // Quick Stats Cards
                 if (_statistics.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: _buildStatisticsBanner(),
+                    child: _buildQuickStatsCards(),
                   ),
                 
-                // Search and Filters
+                // Enhanced Search Section
                 SliverToBoxAdapter(
-                  child: _buildSearchAndFilters(),
+                  child: _buildEnhancedSearchSection(),
                 ),
                 
-                // Featured Teachers
+                // Category Filter Chips
+                SliverToBoxAdapter(
+                  child: _buildCategoryChips(),
+                ),
+                
+                // Featured Teachers Carousel
                 if (_featuredTeachers.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: _buildFeaturedSection(),
+                    child: _buildFeaturedTeachersCarousel(),
                   ),
                 
-                // Results
+                // Sort and View Toggle
+                SliverToBoxAdapter(
+                  child: _buildSortAndViewToggle(),
+                ),
+                
+                // Enhanced Results
                 _isLoading
                     ? SliverFillRemaining(
                         child: CustomWidgets.customLoading(message: 'Öğretmenler yükleniyor...'),
@@ -291,102 +304,17 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
                             ? SliverFillRemaining(
                                 child: _buildEmptyState(),
                               )
-                            : _buildResultsSliver(),
+                            : _buildEnhancedResultsSliver(),
               ],
             ),
           ),
         ),
       ),
-      floatingActionButton: _buildFloatingActionButton(),
+      floatingActionButton: _buildEnhancedFloatingActionButton(),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      title: const Text(
-        'Öğretmenler',
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 24,
-        ),
-      ),
-      centerTitle: true,
-      elevation: 0,
-      backgroundColor: AppTheme.backgroundColor,
-      foregroundColor: AppTheme.textPrimary,
-      actions: [
-        IconButton(
-          icon: Icon(_isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded),
-          onPressed: () {
-            setState(() {
-              _isGridView = !_isGridView;
-            });
-            HapticFeedback.lightImpact();
-          },
-        ),
-      ],
-    );
-  }
 
-  Widget _buildStatisticsBanner() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.primaryBlue,
-            AppTheme.primaryBlue.withValues(alpha: 0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryBlue.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.school_rounded,
-              label: 'Toplam Öğretmen',
-              value: '${_statistics['total_teachers'] ?? 0}',
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: Colors.white.withValues(alpha: 0.3),
-          ),
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.online_prediction_rounded,
-              label: 'Online',
-              value: '${_statistics['online_teachers'] ?? 0}',
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: Colors.white.withValues(alpha: 0.3),
-          ),
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.star_rounded,
-              label: 'Ortalama Puan',
-              value: '${(_statistics['average_rating'] ?? 0).toStringAsFixed(1)}',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildStatItem({
     required IconData icon,
@@ -412,7 +340,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.8),
+            color: Colors.white.withOpacity( 0.8),
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -421,123 +349,6 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
     );
   }
 
-  Widget _buildSearchAndFilters() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Search Bar
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Öğretmen ara...',
-                hintStyle: TextStyle(color: AppTheme.grey500),
-                prefixIcon: Icon(Icons.search_rounded, color: AppTheme.grey500),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear_rounded, color: AppTheme.grey500),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                          _applyFilters();
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              onSubmitted: (value) {
-                _applyFilters();
-              },
-            ),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Filters Row
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterChip(
-                  label: 'Kategori',
-                  value: _selectedCategory.isNotEmpty ? _selectedCategory : 'Tümü',
-                  onTap: _showCategoryFilter,
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'Fiyat',
-                  value: '₺${_minPrice.toInt()}-₺${_maxPrice.toInt()}',
-                  onTap: _showPriceFilter,
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'Puan',
-                  value: _minRating > 0 ? '${_minRating.toStringAsFixed(1)}+' : 'Tümü',
-                  onTap: _showRatingFilter,
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'Sırala',
-                  value: _sortOptions.firstWhere((opt) => opt['value'] == _sortBy)['label'],
-                  onTap: _showSortFilter,
-                ),
-                if (_onlineOnly || _selectedCategory.isNotEmpty || _minRating > 0 || _minPrice > 0 || _maxPrice < 1000)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: GestureDetector(
-                      onTap: _clearFilters,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.errorColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.clear_rounded, size: 16, color: AppTheme.errorColor),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Temizle',
-                              style: TextStyle(
-                                color: AppTheme.errorColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildFilterChip({
     required String label,
@@ -580,70 +391,6 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
     );
   }
 
-  Widget _buildFeaturedSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                '⭐ Öne Çıkan Öğretmenler',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                  fontSize: 18,
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedCategory = '';
-                    _minRating = 4.0;
-                  });
-                  _applyFilters();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Tümünü Gör',
-                    style: TextStyle(
-                      color: AppTheme.primaryBlue,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 200,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: _featuredTeachers.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  width: 160,
-                  margin: EdgeInsets.only(right: index == _featuredTeachers.length - 1 ? 0 : 12),
-                  child: _buildFeaturedTeacherCard(_featuredTeachers[index]),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
 
   Widget _buildFeaturedTeacherCard(Teacher teacher) {
     return GestureDetector(
@@ -654,7 +401,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Colors.black.withOpacity( 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -670,8 +417,8 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 gradient: LinearGradient(
                   colors: [
-                    AppTheme.primaryBlue.withValues(alpha: 0.1),
-                    AppTheme.primaryBlue.withValues(alpha: 0.05),
+                    AppTheme.primaryBlue.withOpacity( 0.1),
+                    AppTheme.primaryBlue.withOpacity( 0.05),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -680,7 +427,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
               child: Center(
                 child: CircleAvatar(
                   radius: 30,
-                  backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.2),
+                  backgroundColor: AppTheme.primaryBlue.withOpacity( 0.2),
                   child: Text(
                         (teacher.user?.name?.substring(0, 1).toUpperCase()) ?? '?',
                     style: const TextStyle(
@@ -766,12 +513,413 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
     );
   }
 
-  Widget _buildResultsSliver() {
-    return _isGridView ? _buildGridSliver() : _buildListSliver();
+
+
+  // Enhanced UI Components
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: false,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black87,
+      flexibleSpace: FlexibleSpaceBar(
+        title: const Text(
+          'Öğretmenler',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.primaryBlue.withOpacity( 0.1),
+                AppTheme.accentGreen.withOpacity( 0.1),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(_isGridView ? Icons.view_list : Icons.view_module),
+          onPressed: () {
+            setState(() {
+              _isGridView = !_isGridView;
+            });
+            HapticFeedback.lightImpact();
+          },
+          tooltip: _isGridView ? 'Liste Görünümü' : 'Izgara Görünümü',
+        ),
+        IconButton(
+          icon: const Icon(Icons.tune),
+          onPressed: _showAdvancedFilters,
+          tooltip: 'Filtreler',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickStatsCards() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              'Toplam Öğretmen',
+              _statistics['total_teachers']?.toString() ?? '0',
+              Icons.school,
+              AppTheme.primaryBlue,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              'Online Öğretmen',
+              _statistics['online_teachers']?.toString() ?? '0',
+              Icons.online_prediction,
+              AppTheme.accentGreen,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              'Ortalama Puan',
+              _statistics['average_rating']?.toString() ?? '0.0',
+              Icons.star,
+              AppTheme.premiumGold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity( 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity( 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedSearchSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity( 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Öğretmen ara...',
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: AppTheme.primaryBlue,
+            ),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                      });
+                      _applyFilters();
+                    },
+                  )
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+          onChanged: (value) {
+            setState(() {
+              _searchQuery = value;
+            });
+          },
+          onSubmitted: (value) {
+            _applyFilters();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChips() {
+    if (_categories.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      height: 50,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _categories.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _buildCategoryChip(
+              'Tümü',
+              '',
+              _selectedCategory.isEmpty,
+            );
+          }
+
+          final category = _categories[index - 1];
+          return _buildCategoryChip(
+            category.name,
+            category.slug,
+            _selectedCategory == category.slug,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip(String label, String value, bool isSelected) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedCategory = selected ? value : '';
+            _currentPage = 1;
+          });
+          _loadTeachers();
+        },
+        backgroundColor: Colors.white,
+        selectedColor: AppTheme.primaryBlue.withOpacity( 0.1),
+        checkmarkColor: AppTheme.primaryBlue,
+        labelStyle: TextStyle(
+          color: isSelected ? AppTheme.primaryBlue : Colors.grey[700],
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+        side: BorderSide(
+          color: isSelected ? AppTheme.primaryBlue : Colors.grey[300]!,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeaturedTeachersCarousel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.star_rounded,
+                color: AppTheme.premiumGold,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Öne Çıkan Öğretmenler',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 280,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _featuredTeachers.length,
+            itemBuilder: (context, index) {
+              return _buildFeaturedTeacherCard(_featuredTeachers[index]);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
   }
 
 
-  Widget _buildListSliver() {
+  Widget _buildSortAndViewToggle() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '${_teachers.length} öğretmen bulundu',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Row(
+            children: [
+              // Sort Dropdown
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _sortBy,
+                    isDense: true,
+                    items: _sortOptions.map((option) {
+                      return DropdownMenuItem<String>(
+                        value: option['value'],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              option['icon'],
+                              size: 16,
+                              color: AppTheme.primaryBlue,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              option['label'],
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _sortBy = value;
+                          _currentPage = 1;
+                        });
+                        _loadTeachers();
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              
+              // View Toggle
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Row(
+                  children: [
+                    _buildViewToggleButton(
+                      Icons.view_list,
+                      !_isGridView,
+                      () => setState(() => _isGridView = false),
+                    ),
+                    _buildViewToggleButton(
+                      Icons.view_module,
+                      _isGridView,
+                      () => setState(() => _isGridView = true),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewToggleButton(IconData icon, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryBlue.withOpacity( 0.1) : null,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: isSelected ? AppTheme.primaryBlue : Colors.grey[600],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedResultsSliver() {
+    return _isGridView ? _buildEnhancedGridSliver() : _buildEnhancedListSliver();
+  }
+
+  Widget _buildEnhancedListSliver() {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -786,11 +934,10 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
             padding: EdgeInsets.only(
               left: 16,
               right: 16,
-              bottom: index == _teachers.length - 1 ? 100 : 16,
+              bottom: index == _teachers.length - 1 ? 100 : 8,
             ),
-            child: TeacherCard(
-              teacher: _teachers[index],
-              onTap: () => _navigateToTeacherDetail(_teachers[index]),
+            child: RepaintBoundary(
+              child: _buildEnhancedTeacherCard(_teachers[index]),
             ),
           );
         },
@@ -799,8 +946,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
     );
   }
 
-
-  Widget _buildGridSliver() {
+  Widget _buildEnhancedGridSliver() {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: SliverGrid(
@@ -808,7 +954,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 0.8,
+          childAspectRatio: 0.75,
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
@@ -816,7 +962,9 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
               return const Center(child: CircularProgressIndicator());
             }
             
-            return _buildGridTeacherCard(_teachers[index]);
+            return RepaintBoundary(
+              child: _buildEnhancedGridTeacherCard(_teachers[index]),
+            );
           },
           childCount: _teachers.length + (_isLoadingMore ? 2 : 0),
         ),
@@ -824,6 +972,322 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
     );
   }
 
+  Widget _buildEnhancedTeacherCard(Teacher teacher) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _navigateToTeacherDetail(teacher),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Profile Image
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: AppTheme.primaryBlue.withOpacity( 0.1),
+                    backgroundImage: teacher.user?.profilePhotoUrl != null
+                        ? NetworkImage(teacher.user!.profilePhotoUrl!)
+                        : null,
+                    child: teacher.user?.profilePhotoUrl == null
+                        ? Text(
+                            (teacher.user?.name?.isNotEmpty == true ? teacher.user!.name[0].toUpperCase() : '?'),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (teacher.onlineAvailable)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentGreen,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              
+              // Teacher Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      teacher.user?.name ?? 'İsimsiz Öğretmen',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (teacher.bio?.isNotEmpty == true)
+                      Text(
+                        teacher.bio!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 8),
+                    
+                    // Rating and Categories
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.star_rounded,
+                          color: AppTheme.premiumGold,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          teacher.ratingAvg.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '(${teacher.ratingCount} değerlendirme)',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Categories
+                    if (teacher.categories?.isNotEmpty == true) ...[
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 4,
+                        children: teacher.categories!.take(2).map((category) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryBlue.withOpacity( 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              category.name,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.primaryBlue,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              
+              // Price and Action
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${teacher.priceHour?.toInt() ?? 0}₺',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                  const Text(
+                    '/saat',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryBlue,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Detay',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedGridTeacherCard(Teacher teacher) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _navigateToTeacherDetail(teacher),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with image
+            Container(
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.primaryBlue.withOpacity( 0.7),
+                    AppTheme.accentGreen.withOpacity( 0.7),
+                  ],
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Center(
+                    child: CircleAvatar(
+                      radius: 25,
+                      backgroundColor: Colors.white,
+                      backgroundImage: teacher.user?.profilePhotoUrl != null
+                          ? NetworkImage(teacher.user!.profilePhotoUrl!)
+                          : null,
+                      child: teacher.user?.profilePhotoUrl == null
+                          ? Text(
+                              (teacher.user?.name?.isNotEmpty == true ? teacher.user!.name[0].toUpperCase() : '?'),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  if (teacher.onlineAvailable)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentGreen,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      teacher.user?.name ?? 'İsimsiz Öğretmen',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    
+                    // Rating
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.star_rounded,
+                          color: AppTheme.premiumGold,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          teacher.ratingAvg.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const Spacer(),
+                    
+                    // Price
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${teacher.priceHour?.toInt() ?? 0}₺/saat',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 12,
+                          color: Colors.grey[400],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedFloatingActionButton() {
+    return FloatingActionButton.extended(
+      onPressed: _showAdvancedFilters,
+      backgroundColor: AppTheme.primaryBlue,
+      foregroundColor: Colors.white,
+      icon: const Icon(Icons.tune),
+      label: const Text('Filtrele'),
+    );
+  }
 
   Widget _buildGridTeacherCard(Teacher teacher) {
     return GestureDetector(
@@ -834,7 +1298,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: Colors.black.withOpacity( 0.08),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -850,8 +1314,8 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 gradient: LinearGradient(
                   colors: [
-                    AppTheme.primaryBlue.withValues(alpha: 0.1),
-                    AppTheme.primaryBlue.withValues(alpha: 0.05),
+                    AppTheme.primaryBlue.withOpacity( 0.1),
+                    AppTheme.primaryBlue.withOpacity( 0.05),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -860,7 +1324,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
               child: Center(
                 child: CircleAvatar(
                   radius: 25,
-                  backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.2),
+                  backgroundColor: AppTheme.primaryBlue.withOpacity( 0.2),
                   child: Text(
                         (teacher.user?.name?.substring(0, 1).toUpperCase()) ?? '?',
                     style: const TextStyle(
@@ -947,7 +1411,7 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
             Icon(
               Icons.error_outline_rounded,
               size: 64,
-              color: AppTheme.errorColor.withValues(alpha: 0.5),
+              color: AppTheme.errorColor.withOpacity( 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -1037,15 +1501,6 @@ class _EnhancedTeachersScreenState extends State<EnhancedTeachersScreen>
     );
   }
 
-  Widget _buildFloatingActionButton() {
-    return FloatingActionButton.extended(
-      onPressed: _showAdvancedFilters,
-      backgroundColor: AppTheme.primaryBlue,
-      foregroundColor: Colors.white,
-      icon: const Icon(Icons.tune_rounded),
-      label: const Text('Gelişmiş Filtreler'),
-    );
-  }
 
   void _navigateToTeacherDetail(Teacher teacher) {
     Navigator.push(

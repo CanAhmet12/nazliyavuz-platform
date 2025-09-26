@@ -12,6 +12,9 @@ class CategorySeeder extends Seeder
      */
     public function run(): void
     {
+        // Önce mevcut kategorileri temizle
+        Category::truncate();
+        
         $categories = [
             // Ana Kategoriler
             [

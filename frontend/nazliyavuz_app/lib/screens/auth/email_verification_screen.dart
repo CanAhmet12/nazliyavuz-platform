@@ -52,16 +52,19 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Başlık
-            Text(
-              'E-posta Adresinizi Doğrulayın',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+            RepaintBoundary(
+              child: Text(
+                'E-posta Adresinizi Doğrulayın',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 16),
 
             // Açıklama
-            Card(
+            RepaintBoundary(
+              child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -91,6 +94,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     ),
                   ],
                 ),
+              ),
               ),
             ),
             const SizedBox(height: 24),

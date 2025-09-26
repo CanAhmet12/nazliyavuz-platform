@@ -866,7 +866,7 @@ class _CreateReservationScreenState extends State<CreateReservationScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).pop(); // Dialog'u kapat
-                  Navigator.of(context).pop(); // Bu sayfayı kapat
+                  Navigator.of(context).pop(true); // Bu sayfayı kapat ve success döndür
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF10B981),

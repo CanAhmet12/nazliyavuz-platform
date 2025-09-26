@@ -98,6 +98,12 @@ class Assignment extends Equatable {
     return statuses[status] ?? status;
   }
 
+  String get statusText => statusInTurkish;
+
+  String get formattedDueDate {
+    return '${dueDate.day}/${dueDate.month}/${dueDate.year} ${dueDate.hour.toString().padLeft(2, '0')}:${dueDate.minute.toString().padLeft(2, '0')}';
+  }
+
   bool get isOverdue {
     return status == 'pending' && dueDate.isBefore(DateTime.now());
   }

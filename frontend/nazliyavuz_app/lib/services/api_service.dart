@@ -14,8 +14,8 @@ import '../models/message.dart';
 
 class ApiService {
   static const String baseUrl = kDebugMode 
-      ? 'https://nazliyavuz-backend-1050061286516.europe-west4.run.app/api/v1'  // Cloud Run
-      : 'https://api.nazliyavuz.com/v1';    // Production
+      ? 'http://192.168.150.19:8080/api/v1'  // Local Development (PC IP)
+      : 'https://nazliyavuz-backend-1050061286516.europe-west4.run.app/api/v1';    // Production
   late Dio _dio;
   String? _token;
   
@@ -1398,6 +1398,47 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getStudentAssignments() async {
+    try {
+      final response = await _dio.get('/assignments/student');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getTeacherAssignments() async {
+    try {
+      final response = await _dio.get('/assignments/teacher');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<User> getUserById(int userId) async {
+    try {
+      final response = await _dio.get('/users/$userId');
+      return User.fromJson(response.data['user']);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<List<User>> searchUsers(String query, {String? role}) async {
+    try {
+      final response = await _dio.get('/search/users', queryParameters: {
+        'q': query,
+        'role': role,
+      });
+      return (response.data['users'] as List)
+          .map((json) => User.fromJson(json))
+          .toList();
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createAssignment(Map<String, dynamic> assignmentData) async {
     try {
       final response = await _dio.post('/assignments', data: assignmentData);
@@ -1409,13 +1450,25 @@ class ApiService {
 
   Future<Map<String, dynamic>> submitAssignment(
     int assignmentId,
-    String filePath,
-    String fileName,
+    dynamic file, // PlatformFile or String path
     String notes,
   ) async {
     try {
+      MultipartFile multipartFile;
+      
+      if (file is String) {
+        // File path
+        multipartFile = await MultipartFile.fromFile(file);
+      } else {
+        // PlatformFile
+        multipartFile = MultipartFile.fromBytes(
+          file.bytes!,
+          filename: file.name,
+        );
+      }
+
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+        'file': multipartFile,
         'notes': notes,
       });
 

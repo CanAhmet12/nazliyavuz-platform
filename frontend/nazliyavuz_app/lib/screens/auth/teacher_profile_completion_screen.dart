@@ -46,6 +46,11 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
   bool _isOnlineAvailable = true;
   String _searchQuery = '';
 
+  // API Data
+  List<Category> _availableCategories = [];
+  List<Category> _mainCategories = [];
+  bool _isLoadingCategories = true;
+
   // Autocomplete Data
   final List<String> _subjectSuggestions = [
     'Matematik', 'Fizik', 'Kimya', 'Biyoloji', 'Türkçe', 'İngilizce', 'Almanca', 'Fransızca',
@@ -86,7 +91,7 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
     super.initState();
     _pageController = PageController();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 300), // Reduced for better performance
       vsync: this,
     );
     _fadeAnimation = Tween<double>(
@@ -94,9 +99,10 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeInOut,
+      curve: Curves.easeOut, // Simplified curve for better performance
     ));
     _animationController.forward();
+    _loadCategories();
   }
 
   @override
@@ -111,6 +117,32 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
     _certificationController.dispose();
     _languagesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final apiService = ApiService();
+      final categories = await apiService.getCategories();
+      
+      setState(() {
+        _mainCategories = categories.where((cat) => cat.parentId == null).toList();
+        _availableCategories = [];
+        
+        // Tüm alt kategorileri düz listede topla
+        for (final mainCategory in _mainCategories) {
+          if (mainCategory.children != null) {
+            _availableCategories.addAll(mainCategory.children!);
+          }
+        }
+        
+        _isLoadingCategories = false;
+      });
+    } catch (e) {
+      print('Kategoriler yüklenirken hata: $e');
+      setState(() {
+        _isLoadingCategories = false;
+      });
+    }
   }
 
   @override
@@ -444,8 +476,6 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
   }
 
   Widget _buildCategoriesStep() {
-    final categories = _getAvailableCategories();
-    
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -454,7 +484,7 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
           _buildSectionHeader('Ders Kategorileri', Icons.category_rounded),
           const SizedBox(height: 8),
           Text(
-            'Hangi dersleri verebileceğinizi seçin (en az 1)',
+            'Önce ana kategori seçin, sonra verebileceğiniz dersleri seçin (en az 1)',
             style: TextStyle(
               color: AppTheme.grey600,
               fontSize: 14,
@@ -525,156 +555,17 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
           const SizedBox(height: 16),
           
           Expanded(
-            child: _searchQuery.isEmpty
-                ? _buildCategoriesWithSections(categories)
-                : _buildFilteredCategories(categories),
+            child: _isLoadingCategories
+                ? const Center(child: CircularProgressIndicator())
+                : _searchQuery.isEmpty
+                    ? _buildHierarchicalCategories()
+                    : _buildFilteredCategories(_availableCategories),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoriesWithSections(List<Category> categories) {
-    // Group categories by parent
-    final Map<String, List<Category>> groupedCategories = {};
-    
-    for (final category in categories) {
-      final parentName = category.parentId != null ? _getParentCategoryName(category.parentId!) : 'Diğer';
-      if (!groupedCategories.containsKey(parentName)) {
-        groupedCategories[parentName] = [];
-      }
-      groupedCategories[parentName]!.add(category);
-    }
-    
-    return ListView.builder(
-      itemCount: groupedCategories.length,
-      itemBuilder: (context, sectionIndex) {
-        final sectionName = groupedCategories.keys.elementAt(sectionIndex);
-        final sectionCategories = groupedCategories[sectionName]!;
-        
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Section Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                sectionName,
-                style: TextStyle(
-                  color: AppTheme.primaryBlue,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            // Categories Grid
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.1,
-              ),
-              itemCount: sectionCategories.length,
-              itemBuilder: (context, index) {
-                final category = sectionCategories[index];
-                final isSelected = _selectedCategories.contains(category);
-                final colors = [
-                  const Color(0xFF3B82F6),
-                  const Color(0xFF10B981),
-                  const Color(0xFF8B5CF6),
-                  const Color(0xFFF59E0B),
-                  const Color(0xFFEF4444),
-                  const Color(0xFF06B6D4),
-                ];
-                final color = colors[index % colors.length];
-                
-                return GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    setState(() {
-                      if (isSelected) {
-                        _selectedCategories.remove(category);
-                      } else {
-                        _selectedCategories.add(category);
-                      }
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: isSelected ? color : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? color : color.withOpacity(0.3),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (isSelected ? color : Colors.grey).withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _getCategoryIcon(category.name),
-                          color: isSelected ? Colors.white : color,
-                          size: 28,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          category.name,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : color,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (isSelected)
-                          Container(
-                            margin: const EdgeInsets.only(top: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Seçildi',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-        );
-      },
-    );
-  }
 
   Widget _buildExperienceStep() {
     return Padding(
@@ -1443,25 +1334,133 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
     );
   }
 
-  List<Category> _getAvailableCategories() {
-    return [
-      const Category(id: 1, name: 'Matematik', slug: 'matematik'),
-      const Category(id: 2, name: 'İngilizce', slug: 'ingilizce'),
-      const Category(id: 3, name: 'Fizik', slug: 'fizik'),
-      const Category(id: 4, name: 'Kimya', slug: 'kimya'),
-      const Category(id: 5, name: 'Biyoloji', slug: 'biyoloji'),
-      const Category(id: 6, name: 'Tarih', slug: 'tarih'),
-      const Category(id: 7, name: 'Coğrafya', slug: 'cografya'),
-      const Category(id: 8, name: 'Edebiyat', slug: 'edebiyat'),
-      const Category(id: 9, name: 'Felsefe', slug: 'felsefe'),
-      const Category(id: 10, name: 'Müzik', slug: 'muzik'),
-      const Category(id: 11, name: 'Resim', slug: 'resim'),
-      const Category(id: 12, name: 'Bilgisayar', slug: 'bilgisayar'),
-    ];
+  Widget _buildHierarchicalCategories() {
+    return ListView.builder(
+      itemCount: _mainCategories.length,
+      itemBuilder: (context, index) {
+        final mainCategory = _mainCategories[index];
+        return _buildMainCategoryCard(mainCategory);
+      },
+    );
   }
+
+  Widget _buildMainCategoryCard(Category mainCategory) {
+    final children = mainCategory.children ?? [];
+    final selectedChildrenCount = children.where((child) => _selectedCategories.contains(child)).length;
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _getCategoryColor(mainCategory.slug).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            _getCategoryIcon(mainCategory.name),
+            color: _getCategoryColor(mainCategory.slug),
+            size: 24,
+          ),
+        ),
+        title: Text(
+          mainCategory.name,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: selectedChildrenCount > 0 
+            ? Text(
+                '$selectedChildrenCount ders seçildi',
+                style: TextStyle(
+                  color: AppTheme.primaryBlue,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            : Text(
+                mainCategory.description ?? 'Kategoriye ait dersler',
+                style: TextStyle(color: AppTheme.grey600),
+              ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: children.map((category) {
+                final isSelected = _selectedCategories.contains(category);
+                return RepaintBoundary(
+                  child: FilterChip(
+                  label: Text(category.name),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedCategories.add(category);
+                      } else {
+                        _selectedCategories.remove(category);
+                      }
+                    });
+                    HapticFeedback.lightImpact();
+                  },
+                  selectedColor: AppTheme.primaryBlue.withOpacity(0.2),
+                  checkmarkColor: AppTheme.primaryBlue,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getCategoryColor(String slug) {
+    final colors = [
+      const Color(0xFF3B82F6), // Blue
+      const Color(0xFF10B981), // Green
+      const Color(0xFF8B5CF6), // Purple
+      const Color(0xFFF59E0B), // Orange
+      const Color(0xFFEF4444), // Red
+      const Color(0xFF06B6D4), // Cyan
+      const Color(0xFFEC4899), // Pink
+      const Color(0xFF84CC16), // Lime
+    ];
+    return colors[slug.hashCode.abs() % colors.length];
+  }
+
 
   IconData _getCategoryIcon(String categoryName) {
     switch (categoryName.toLowerCase()) {
+      case 'okul dersleri':
+        return Icons.school_rounded;
+      case 'fakülte dersleri':
+        return Icons.account_balance_rounded;
+      case 'yazılım':
+        return Icons.code_rounded;
+      case 'sağlık ve meditasyon':
+        return Icons.health_and_safety_rounded;
+      case 'spor':
+        return Icons.sports_rounded;
+      case 'dans':
+        return Icons.music_note_rounded;
+      case 'sınava hazırlık':
+        return Icons.quiz_rounded;
+      case 'müzik':
+        return Icons.music_note_rounded;
+      case 'kişisel gelişim':
+        return Icons.psychology_rounded;
+      case 'sanat ve hobiler':
+        return Icons.palette_rounded;
+      case 'direksiyon':
+        return Icons.drive_eta_rounded;
+      case 'tasarım':
+        return Icons.design_services_rounded;
+      case 'dijital pazarlama':
+        return Icons.campaign_rounded;
       case 'matematik':
         return Icons.calculate_rounded;
       case 'ingilizce':
@@ -1480,14 +1479,12 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
         return Icons.menu_book_rounded;
       case 'felsefe':
         return Icons.psychology_rounded;
-      case 'müzik':
-        return Icons.music_note_rounded;
       case 'resim':
         return Icons.brush_rounded;
       case 'bilgisayar':
         return Icons.computer_rounded;
       default:
-        return Icons.school_rounded;
+        return Icons.category_rounded;
     }
   }
 
@@ -1516,19 +1513,20 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
         ];
         final color = colors[index % colors.length];
         
-        return GestureDetector(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            setState(() {
-              if (isSelected) {
-                _selectedCategories.remove(category);
-              } else {
-                _selectedCategories.add(category);
-              }
-            });
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+        return RepaintBoundary(
+          child: GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                if (isSelected) {
+                  _selectedCategories.remove(category);
+                } else {
+                  _selectedCategories.add(category);
+                }
+              });
+            },
+            child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150), // Reduced for better performance
             decoration: BoxDecoration(
               color: isSelected ? color : Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -1584,28 +1582,9 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
               ],
             ),
           ),
+        ),
         );
       },
     );
-  }
-
-  String _getParentCategoryName(int parentId) {
-    // This would normally fetch from API, but for now return mock data
-    final parentCategories = {
-      1: 'Okul Dersleri',
-      2: 'Fakülte Dersleri',
-      3: 'Yazılım',
-      4: 'Sağlık ve Meditasyon',
-      5: 'Spor',
-      6: 'Dans',
-      7: 'Sınava Hazırlık',
-      8: 'Müzik',
-      9: 'Kişisel Gelişim',
-      10: 'Sanat ve Hobiler',
-      11: 'Direksiyon',
-      12: 'Tasarım',
-      13: 'Dijital Pazarlama',
-    };
-    return parentCategories[parentId] ?? 'Diğer';
   }
 }

@@ -91,22 +91,22 @@ Widget build(BuildContext context) {
                       const SizedBox(height: 20),
 
                       // Logo ve Başlık
-                      _buildHeader(),
+                      RepaintBoundary(child: _buildHeader()),
 
                       const SizedBox(height: 32),
 
                       // Form
-                      _buildForm(),
+                      RepaintBoundary(child: _buildForm()),
 
                       const SizedBox(height: 32),
 
                       // Sosyal Medya Girişi
-                      _buildSocialLogin(),
+                      RepaintBoundary(child: _buildSocialLogin()),
 
                       const SizedBox(height: 24),
 
                       // Kayıt Ol Linki
-                      _buildRegisterLink(),
+                      RepaintBoundary(child: _buildRegisterLink()),
 
                       const SizedBox(height: 40),
                     ],
@@ -141,7 +141,7 @@ Widget build(BuildContext context) {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.premiumGold.withValues(alpha: 0.3),
+                color: AppTheme.premiumGold.withOpacity( 0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -222,7 +222,7 @@ Widget build(BuildContext context) {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.premiumGold.withValues(alpha: 0.1),
+            color: AppTheme.premiumGold.withOpacity( 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -239,7 +239,7 @@ Widget build(BuildContext context) {
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppTheme.premiumGold.withValues(alpha: 0.2), AppTheme.primaryBlue.withValues(alpha: 0.2)],
+                colors: [AppTheme.premiumGold.withOpacity( 0.2), AppTheme.primaryBlue.withOpacity( 0.2)],
               ),
               borderRadius: BorderRadius.circular(10),
             ),
@@ -301,7 +301,7 @@ Widget build(BuildContext context) {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.premiumGold.withValues(alpha: 0.1),
+            color: AppTheme.premiumGold.withOpacity( 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -317,7 +317,7 @@ Widget build(BuildContext context) {
         prefixIcon: Container(
           margin: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+            color: AppTheme.primaryBlue.withOpacity( 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -496,7 +496,7 @@ Widget build(BuildContext context) {
               gradient: LinearGradient(
                 colors: [
                   AppTheme.premiumGold,
-                  AppTheme.premiumGold.withValues(alpha: 0.8),
+                  AppTheme.premiumGold.withOpacity(0.8),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -504,7 +504,7 @@ Widget build(BuildContext context) {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.premiumGold.withValues(alpha: 0.3),
+                  color: AppTheme.premiumGold.withOpacity(0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 6),
                 ),

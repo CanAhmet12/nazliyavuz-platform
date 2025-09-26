@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../main.dart';
 import '../../models/user.dart';
 import '../teachers/enhanced_teachers_screen.dart';
-import '../reservations/reservations_screen.dart';
+import '../reservations/enhanced_reservations_screen.dart';
 import '../profile/enhanced_profile_screen.dart';
 import '../search/search_screen.dart';
 import '../notifications/notification_screen.dart';
@@ -12,6 +12,7 @@ import '../lessons/enhanced_lessons_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_widgets.dart';
 import '../chat/chat_list_screen.dart';
+import '../assignments/student_assignments_screen.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -23,6 +24,9 @@ class StudentHomeScreen extends StatefulWidget {
 class _StudentHomeScreenState extends State<StudentHomeScreen>
     with TickerProviderStateMixin {
   int _currentIndex = 0;
+  
+  // Performance optimization
+  final List<RepaintBoundary> _cachedScreens = [];
   late AnimationController _fabAnimationController;
 
   @override
@@ -65,11 +69,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
           body: IndexedStack(
             index: _currentIndex,
             children: [
-              _buildStudentHomeTab(user),
-              if (_currentIndex == 1) const EnhancedTeachersScreen(),
-              if (_currentIndex == 2) const EnhancedLessonsScreen(),
-              if (_currentIndex == 3) const ReservationsScreen(),
-              if (_currentIndex == 4) const EnhancedProfileScreen(),
+              RepaintBoundary(child: _buildStudentHomeTab(user)),
+              const RepaintBoundary(child: EnhancedTeachersScreen()),
+              const RepaintBoundary(child: EnhancedLessonsScreen()),
+              const RepaintBoundary(child: EnhancedReservationsScreen()),
+              const RepaintBoundary(child: EnhancedProfileScreen()),
             ],
           ),
           bottomNavigationBar: _buildStudentBottomNavigationBar(),
@@ -132,7 +136,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryBlue.withValues(alpha: 0.08) : Colors.transparent,
+            color: isSelected ? AppTheme.primaryBlue.withOpacity(0.08) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -255,12 +259,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                       color: AppTheme.amberAccent,
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ReservationsScreen(),
-                          ),
-                        );
+                        setState(() {
+                          _currentIndex = 3; // Rezervasyonlar tab'ine geç
+                        });
                       },
                     ),
                     _buildQuickActionCard(
@@ -324,7 +325,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -676,7 +677,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ReservationsScreen(),
+                            builder: (context) => const EnhancedReservationsScreen(),
                     ),
                   );
                 },
@@ -711,7 +712,12 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                 subtitle: 'Ödevlerimi görüntüle',
                 color: AppTheme.accentGreen,
                 onTap: () {
-                  // TODO: Navigate to assignments
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => StudentAssignmentsScreen(),
+                    ),
+                  );
                 },
               ),
             ),
@@ -737,7 +743,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -750,7 +756,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -866,7 +872,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -880,7 +886,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -941,12 +947,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
             ),
             GestureDetector(
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ReservationsScreen(),
-                  ),
-                );
+                setState(() {
+                  _currentIndex = 3; // Rezervasyonlar tab'ine geç
+                });
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1167,7 +1170,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.1),
+            color: color.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1181,7 +1184,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
             height: 60,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [color, color.withValues(alpha: 0.8)],
+                colors: [color, color.withOpacity(0.8)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),

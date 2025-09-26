@@ -21,6 +21,126 @@ class AssignmentController extends Controller
     }
 
     /**
+     * Get teacher's all assignments
+     */
+    public function getTeacherAssignments(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            if ($user->role !== 'teacher') {
+                return response()->json([
+                    'error' => [
+                        'code' => 'FORBIDDEN',
+                        'message' => 'Sadece öğretmenler bu endpoint\'i kullanabilir'
+                    ]
+                ], 403);
+            }
+
+            $assignments = Assignment::where('teacher_id', $user->id)
+                                   ->with(['student'])
+                                   ->orderBy('created_at', 'desc')
+                                   ->get();
+
+            return response()->json([
+                'success' => true,
+                'assignments' => $assignments->map(function ($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'title' => $assignment->title,
+                        'description' => $assignment->description,
+                        'due_date' => $assignment->due_date->toISOString(),
+                        'difficulty' => $assignment->difficulty,
+                        'status' => $assignment->status,
+                        'grade' => $assignment->grade,
+                        'feedback' => $assignment->feedback,
+                        'submission_notes' => $assignment->submission_notes,
+                        'submission_file_name' => $assignment->submission_file_name,
+                        'submitted_at' => $assignment->submitted_at?->toISOString(),
+                        'graded_at' => $assignment->graded_at?->toISOString(),
+                        'student_name' => $assignment->student->name,
+                        'created_at' => $assignment->created_at->toISOString(),
+                        'updated_at' => $assignment->updated_at->toISOString(),
+                    ];
+                }),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Get teacher assignments failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id ?? null,
+            ]);
+
+            return response()->json([
+                'error' => [
+                    'code' => 'GET_TEACHER_ASSIGNMENTS_ERROR',
+                    'message' => 'Ödevler alınırken bir hata oluştu'
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Get student's all assignments
+     */
+    public function getStudentAssignments(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            if ($user->role !== 'student') {
+                return response()->json([
+                    'error' => [
+                        'code' => 'FORBIDDEN',
+                        'message' => 'Sadece öğrenciler bu endpoint\'i kullanabilir'
+                    ]
+                ], 403);
+            }
+
+            $assignments = Assignment::where('student_id', $user->id)
+                                   ->with(['teacher'])
+                                   ->orderBy('created_at', 'desc')
+                                   ->get();
+
+            return response()->json([
+                'success' => true,
+                'assignments' => $assignments->map(function ($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'title' => $assignment->title,
+                        'description' => $assignment->description,
+                        'due_date' => $assignment->due_date->toISOString(),
+                        'difficulty' => $assignment->difficulty,
+                        'status' => $assignment->status,
+                        'grade' => $assignment->grade,
+                        'feedback' => $assignment->feedback,
+                        'submission_notes' => $assignment->submission_notes,
+                        'submission_file_name' => $assignment->submission_file_name,
+                        'submitted_at' => $assignment->submitted_at?->toISOString(),
+                        'graded_at' => $assignment->graded_at?->toISOString(),
+                        'teacher_name' => $assignment->teacher->name,
+                        'created_at' => $assignment->created_at->toISOString(),
+                        'updated_at' => $assignment->updated_at->toISOString(),
+                    ];
+                }),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Get student assignments failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id ?? null,
+            ]);
+
+            return response()->json([
+                'error' => [
+                    'code' => 'GET_STUDENT_ASSIGNMENTS_ERROR',
+                    'message' => 'Ödevler alınırken bir hata oluştu'
+                ]
+            ], 500);
+        }
+    }
+
+    /**
      * Get assignments for authenticated user
      */
     public function index(Request $request): JsonResponse

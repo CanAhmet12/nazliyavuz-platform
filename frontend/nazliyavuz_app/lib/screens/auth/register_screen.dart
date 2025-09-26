@@ -64,25 +64,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(height: 20),
                         
                         // Premium Header
-                        _buildPremiumHeader(),
+                        RepaintBoundary(child: _buildPremiumHeader()),
                         
                         const SizedBox(height: 24),
                         
                         // Başlık
-                        Text(
-                          'Hesap Oluştur',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                        RepaintBoundary(
+                          child: Column(
+                            children: [
+                              Text(
+                                'Hesap Oluştur',
+                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Yeni hesabınızı oluşturun',
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Yeni hesabınızı oluşturun',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 32),
 
@@ -584,7 +590,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.premiumGold.withValues(alpha: 0.3),
+                color: AppTheme.premiumGold.withOpacity(0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),

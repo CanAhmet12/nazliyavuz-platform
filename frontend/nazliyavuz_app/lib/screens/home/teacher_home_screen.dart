@@ -4,13 +4,14 @@ import 'package:flutter/services.dart';
 import '../../main.dart';
 import '../../models/user.dart';
 import '../teachers/enhanced_teachers_screen.dart';
-import '../reservations/teacher_reservations_screen.dart';
+import '../reservations/enhanced_reservations_screen.dart';
 import '../profile/enhanced_profile_screen.dart';
 import '../notifications/notification_screen.dart';
 import '../lessons/enhanced_lessons_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_widgets.dart';
 import '../chat/chat_list_screen.dart';
+import '../assignments/teacher_assignments_screen.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
   const TeacherHomeScreen({super.key});
@@ -72,11 +73,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
           body: IndexedStack(
             index: _currentIndex,
             children: [
-              _buildTeacherHomeTab(user),
-              if (_currentIndex == 1) const EnhancedTeachersScreen(),
-              if (_currentIndex == 2) const EnhancedLessonsScreen(),
-              if (_currentIndex == 3) const TeacherReservationsScreen(),
-              if (_currentIndex == 4) const EnhancedProfileScreen(),
+              RepaintBoundary(child: _buildTeacherHomeTab(user)),
+              const RepaintBoundary(child: EnhancedTeachersScreen()),
+              const RepaintBoundary(child: EnhancedLessonsScreen()),
+              const RepaintBoundary(child: EnhancedReservationsScreen()),
+              const RepaintBoundary(child: EnhancedProfileScreen()),
             ],
           ),
           bottomNavigationBar: _buildTeacherBottomNavigationBar(),
@@ -94,7 +95,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withOpacity( 0.08),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -138,7 +139,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryBlue.withValues(alpha: 0.08) : Colors.transparent,
+          color: isSelected ? AppTheme.primaryBlue.withOpacity( 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -251,7 +252,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const TeacherReservationsScreen(),
+                            builder: (context) => const EnhancedReservationsScreen(),
                           ),
                         );
                       },
@@ -281,7 +282,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                       color: AppTheme.accentOrange,
                       onTap: () {
                         Navigator.pop(context);
-                        // TODO: Navigate to create assignment
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TeacherAssignmentsScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildQuickActionCard(
@@ -323,7 +329,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity( 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -428,7 +434,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
+                          color: Colors.black.withOpacity( 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -460,7 +466,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                         Text(
                           'Merhaba Öğretmen,',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: Colors.white.withOpacity( 0.8),
                             fontSize: 12,
                           ),
                         ),
@@ -483,7 +489,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity( 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(
@@ -508,7 +514,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity( 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(
@@ -554,7 +560,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryBlue.withValues(alpha: 0.3),
+            color: AppTheme.primaryBlue.withOpacity( 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -566,10 +572,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withOpacity( 0.2),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: Colors.white.withOpacity( 0.3),
                 width: 1,
               ),
             ),
@@ -608,7 +614,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withOpacity( 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -621,7 +627,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const TeacherReservationsScreen(),
+                    builder: (context) => const EnhancedReservationsScreen(),
                   ),
                 );
               },
@@ -657,7 +663,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const TeacherReservationsScreen(),
+                      builder: (context) => const EnhancedReservationsScreen(),
                     ),
                   );
                 },
@@ -692,7 +698,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                 subtitle: 'Yeni ödev oluştur',
                 color: const Color(0xFF8B5CF6),
                 onTap: () {
-                  // TODO: Navigate to create assignment
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TeacherAssignmentsScreen(),
+                    ),
+                  );
                 },
               ),
             ),
@@ -730,7 +741,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity( 0.1),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -743,7 +754,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: color.withOpacity( 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -840,7 +851,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.08),
+            color: color.withOpacity( 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -855,7 +866,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -869,7 +880,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: color.withOpacity( 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -933,14 +944,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const TeacherReservationsScreen(),
+                    builder: (context) => const EnhancedReservationsScreen(),
                   ),
                 );
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                  color: const Color(0xFF3B82F6).withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
@@ -963,7 +974,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withOpacity( 0.04),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -1020,7 +1031,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
+              color: iconColor.withOpacity( 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -1060,7 +1071,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
+                  color: statusColor.withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1110,7 +1121,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                  color: const Color(0xFF3B82F6).withOpacity( 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
@@ -1192,12 +1203,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.15),
+              color: color.withOpacity(0.15),
               blurRadius: 24,
               offset: const Offset(0, 12),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -1215,8 +1226,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                   end: Alignment.bottomRight,
                   colors: [
                     color,
-                    color.withValues(alpha: 0.8),
-                    color.withValues(alpha: 0.6),
+                    color.withOpacity( 0.8),
+                    color.withOpacity( 0.6),
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1234,7 +1245,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: Colors.white.withOpacity( 0.1),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -1246,7 +1257,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: Colors.white.withOpacity( 0.05),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -1262,7 +1273,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
+                            color: Colors.black.withOpacity( 0.15),
                             blurRadius: 12,
                             offset: const Offset(0, 6),
                           ),
@@ -1283,7 +1294,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: Colors.white.withOpacity( 0.9),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1358,7 +1369,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                       Container(
                         height: 6,
                         decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.1),
+                          color: color.withOpacity( 0.1),
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: FractionallySizedBox(
@@ -1367,7 +1378,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                           child: Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [color, color.withValues(alpha: 0.8)],
+                                colors: [color, color.withOpacity( 0.8)],
                               ),
                               borderRadius: BorderRadius.circular(3),
                             ),
@@ -1404,7 +1415,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
+        color: color.withOpacity( 0.05),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
