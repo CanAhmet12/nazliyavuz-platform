@@ -39,14 +39,8 @@ class TeacherController extends Controller
             $cacheKey = 'teachers:' . md5(serialize($request->all()));
             Log::info('📝 Cache key created', ['cache_key' => $cacheKey]);
             
-            // Try to get from cache first
-            Log::info('🔍 Checking cache for results...');
-            $cachedResult = $this->cacheService->getCachedSearchResults($cacheKey, $request->all());
-            if ($cachedResult) {
-                Log::info('✅ Cache hit - returning cached results');
-                return response()->json($cachedResult);
-            }
-            Log::info('❌ Cache miss - proceeding with database query');
+            // Cache temporarily disabled for debugging
+            Log::info('⚠️ Cache disabled - proceeding with database query');
 
             Log::info('🗄️ Starting database query...');
             $query = Teacher::with(['user', 'categories'])
@@ -177,10 +171,8 @@ class TeacherController extends Controller
                 'meta' => $result['meta']
             ]);
 
-            // Cache the result
-            Log::info('💾 Caching results...');
-            $this->cacheService->cacheSearchResults($cacheKey, $request->all(), $result, CacheService::SHORT_TERM);
-            Log::info('✅ Results cached successfully');
+            // Cache temporarily disabled
+            Log::info('⚠️ Cache disabled - skipping caching');
 
             Log::info('🎉 TeacherController::index COMPLETED SUCCESSFULLY');
             return response()->json($result);
