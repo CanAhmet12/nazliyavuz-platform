@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -30,6 +31,7 @@ class UserController extends Controller
      */
     public function profile(): JsonResponse
     {
+        Log::info('🚀 UserController::profile STARTED');
         try {
             $user = Auth::user();
             $user->load(['teacher', 'socialAccounts']);
@@ -61,11 +63,18 @@ class UserController extends Controller
                 ];
             }
 
+            Log::info('✅ UserController::profile COMPLETED');
             return response()->json([
                 'user' => $profileData
             ]);
 
         } catch (\Exception $e) {
+            Log::error('💥 ERROR in UserController::profile', [
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'error' => [
                     'code' => 'PROFILE_ERROR',
