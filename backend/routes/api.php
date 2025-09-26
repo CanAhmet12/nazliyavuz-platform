@@ -81,7 +81,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/payments/callback', [PaymentController::class, 'handleCallback']);
     
     // Protected routes
-    Route::middleware(['auth:jwt', 'rate_limit:api,60,1'])->group(function () {
+    Route::middleware(['auth:api', 'rate_limit:api,60,1'])->group(function () {
         
         // User profile
         Route::get('/user', [UserController::class, 'profile']);

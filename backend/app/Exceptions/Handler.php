@@ -18,6 +18,7 @@ use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Exceptions\TokenBlacklistedException;
 use Throwable;
+use Illuminate\Http\Response;
 
 class Handler extends ExceptionHandler
 {
@@ -317,5 +318,19 @@ class Handler extends ExceptionHandler
             'timestamp' => now()->toISOString(),
             'path' => $request->path(),
         ], $exception->status);
+    }
+
+    /**
+     * Convert an authentication exception into a response.
+     */
+    protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        return response()->json([
+            'error' => true,
+            'code' => 'UNAUTHENTICATED',
+            'message' => 'Bu işlem için giriş yapmanız gerekiyor.',
+            'timestamp' => now()->toISOString(),
+            'path' => $request->path(),
+        ], 401);
     }
 }
