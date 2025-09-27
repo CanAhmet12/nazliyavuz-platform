@@ -39,7 +39,7 @@ class SampleDataSeeder extends Seeder
         $users = [
             [
                 'name' => 'Ahmet Yılmaz (Sample)',
-                'email' => 'ahmet.sample@example.com',
+                'email' => 'ahmet.sample2@example.com',
                 'password' => Hash::make('password123'),
                 'role' => 'teacher',
                 'email_verified_at' => now(),
@@ -47,7 +47,7 @@ class SampleDataSeeder extends Seeder
             ],
             [
                 'name' => 'Sarah Johnson',
-                'email' => 'sarah@example.com',
+                'email' => 'sarah.sample2@example.com',
                 'password' => Hash::make('password123'),
                 'role' => 'teacher',
                 'email_verified_at' => now(),
@@ -55,7 +55,7 @@ class SampleDataSeeder extends Seeder
             ],
             [
                 'name' => 'Mehmet Kaya (Sample)',
-                'email' => 'mehmet.sample@example.com',
+                'email' => 'mehmet.sample2@example.com',
                 'password' => Hash::make('password123'),
                 'role' => 'teacher',
                 'email_verified_at' => now(),
@@ -63,7 +63,7 @@ class SampleDataSeeder extends Seeder
             ],
             [
                 'name' => 'Ayşe Demir (Sample)',
-                'email' => 'ayse.sample@example.com',
+                'email' => 'ayse.sample2@example.com',
                 'password' => Hash::make('password123'),
                 'role' => 'teacher',
                 'email_verified_at' => now(),
@@ -71,7 +71,7 @@ class SampleDataSeeder extends Seeder
             ],
             [
                 'name' => 'Emre Özkan (Sample)',
-                'email' => 'emre.sample@example.com',
+                'email' => 'emre.sample2@example.com',
                 'password' => Hash::make('password123'),
                 'role' => 'teacher',
                 'email_verified_at' => now(),
@@ -79,7 +79,7 @@ class SampleDataSeeder extends Seeder
             ],
             [
                 'name' => 'Zeynep Kaya (Sample)',
-                'email' => 'zeynep.sample@example.com',
+                'email' => 'zeynep.sample2@example.com',
                 'password' => Hash::make('password123'),
                 'role' => 'student',
                 'email_verified_at' => now(),
@@ -87,7 +87,7 @@ class SampleDataSeeder extends Seeder
             ],
             [
                 'name' => 'Ali Veli (Sample)',
-                'email' => 'ali.sample@example.com',
+                'email' => 'ali.sample2@example.com',
                 'password' => Hash::make('password123'),
                 'role' => 'student',
                 'email_verified_at' => now(),
@@ -95,7 +95,7 @@ class SampleDataSeeder extends Seeder
             ],
             [
                 'name' => 'Fatma Şahin (Sample)',
-                'email' => 'fatma.sample@example.com',
+                'email' => 'fatma.sample2@example.com',
                 'password' => Hash::make('password123'),
                 'role' => 'student',
                 'email_verified_at' => now(),
