@@ -21,9 +21,6 @@ class SampleDataSeeder extends Seeder
         // Create sample users
         $this->createSampleUsers();
         
-        // Create sample categories
-        $this->createSampleCategories();
-        
         // Create sample teachers
         $this->createSampleTeachers();
         
