@@ -135,6 +135,7 @@ class UserSeeder extends Seeder
                     'name' => $teacherData['name'],
                     'password' => Hash::make('password'),
                     'role' => 'teacher',
+                    'is_approved' => 1,
                     'verified_at' => now(),
                     'email_verified_at' => now(),
                 ]
