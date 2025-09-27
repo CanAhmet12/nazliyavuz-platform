@@ -200,7 +200,6 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen>
             MaterialPageRoute(
               builder: (context) => AssignmentDetailScreen(
                 assignment: assignment,
-                isTeacher: true,
               ),
             ),
           ).then((_) => _loadAssignments());

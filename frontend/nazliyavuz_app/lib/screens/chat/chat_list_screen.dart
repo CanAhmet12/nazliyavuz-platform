@@ -15,8 +15,10 @@ class ChatListScreen extends StatefulWidget {
 class _ChatListScreenState extends State<ChatListScreen> {
   final _apiService = ApiService();
   List<Chat> _chats = [];
+  List<Chat> _filteredChats = [];
   bool _isLoading = true;
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -35,6 +37,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       
       setState(() {
         _chats = chats;
+        _filteredChats = chats;
         _isLoading = false;
       });
     } catch (e) {
@@ -60,7 +63,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // TODO: Implement search
+              _showSearchDialog();
             },
           ),
         ],
@@ -113,7 +116,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       );
     }
 
-    if (_chats.isEmpty) {
+    if (_filteredChats.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -148,9 +151,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
       onRefresh: _refreshChats,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _chats.length,
+        itemCount: _filteredChats.length,
         itemBuilder: (context, index) {
-          final chat = _chats[index];
+          final chat = _filteredChats[index];
           return _buildChatItem(chat);
         },
       ),
@@ -339,6 +342,53 @@ class _ChatListScreenState extends State<ChatListScreen> {
       return '${difference.inMinutes}dk';
     } else {
       return 'Şimdi';
+    }
+  }
+
+  void _showSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sohbet Ara'),
+        content: TextField(
+          decoration: const InputDecoration(
+            hintText: 'Kullanıcı adı veya mesaj ara...',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) {
+            _searchQuery = value;
+            _filterChats();
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _filterChats();
+              Navigator.pop(context);
+            },
+            child: const Text('Ara'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _filterChats() {
+    if (_searchQuery.isEmpty) {
+      setState(() {
+        _filteredChats = _chats;
+      });
+    } else {
+      setState(() {
+        _filteredChats = _chats.where((chat) {
+          return chat.otherUser.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                 (chat.lastMessage?.content.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+        }).toList();
+      });
     }
   }
 }

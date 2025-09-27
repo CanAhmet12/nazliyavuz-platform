@@ -4,8 +4,8 @@ import '../../theme/app_theme.dart';
 import '../../widgets/custom_widgets.dart';
 import '../../widgets/teacher_card.dart';
 import '../../models/teacher.dart';
-import '../../models/user.dart';
 import '../../models/category.dart';
+import '../../services/api_service.dart';
 import 'advanced_search_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -17,6 +17,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen>
     with TickerProviderStateMixin {
+  final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   
@@ -26,6 +27,7 @@ class _SearchScreenState extends State<SearchScreen>
   
   List<Teacher> _teachers = [];
   List<Teacher> _filteredTeachers = [];
+  List<Category> _categories = [];
   bool _isLoading = false;
   bool _isGridView = false;
   String _selectedCategory = '';
@@ -34,25 +36,7 @@ class _SearchScreenState extends State<SearchScreen>
   double _minRating = 0;
   bool _onlineOnly = false;
   String _sortBy = 'rating';
-
-  final List<String> _categories = [
-    'Matematik',
-    'Fizik',
-    'Kimya',
-    'Biyoloji',
-    'Türkçe',
-    'İngilizce',
-    'Tarih',
-    'Coğrafya',
-    'Felsefe',
-    'Müzik',
-    'Resim',
-    'Spor',
-    'Yazılım',
-    'Tasarım',
-    'Dans',
-    'Sınava Hazırlık',
-  ];
+  String? _error;
 
   final List<Map<String, dynamic>> _sortOptions = [
     {'value': 'rating', 'label': 'En Yüksek Puan'},
@@ -87,7 +71,7 @@ class _SearchScreenState extends State<SearchScreen>
     ));
     
     _animationController.forward();
-    _loadTeachers();
+    _loadInitialData();
   }
 
   @override
@@ -98,115 +82,82 @@ class _SearchScreenState extends State<SearchScreen>
     super.dispose();
   }
 
-  void _loadTeachers() {
-    setState(() {
-      _isLoading = true;
-    });
-    
-    // Simulate API call
-    Future.delayed(const Duration(seconds: 1), () {
+  Future<void> _loadInitialData() async {
+    try {
       setState(() {
-        _teachers = _generateMockTeachers();
-        _filteredTeachers = _teachers;
-        _isLoading = false;
+        _isLoading = true;
+        _error = null;
       });
-    });
+
+      await Future.wait([
+        _loadTeachers(),
+        _loadCategories(),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  List<Teacher> _generateMockTeachers() {
-    // Mock data generation
-    return List.generate(20, (index) {
-      return Teacher(
-        userId: index + 1,
-        id: index + 1,
-        user: User(
-          id: index + 1,
-          name: 'Öğretmen ${index + 1}',
-          email: 'teacher${index + 1}@example.com',
-          role: 'teacher',
-        ),
-        bio: 'Deneyimli ${_categories[index % _categories.length]} öğretmeni',
-        priceHour: 50.0 + (index * 10),
-        ratingAvg: 3.5 + (index % 15) * 0.1,
-        ratingCount: 10 + (index * 5),
-        onlineAvailable: index % 3 == 0,
-        categories: [
-          Category(
-            id: index + 1,
-            name: _categories[index % _categories.length],
-            slug: _categories[index % _categories.length].toLowerCase().replaceAll(' ', '-'),
-          )
-        ],
+  Future<void> _loadTeachers() async {
+    try {
+      final teachers = await _apiService.getTeachers(
+        category: _selectedCategory.isNotEmpty ? _selectedCategory : null,
+        minRating: _minRating > 0 ? _minRating : null,
+        onlineOnly: _onlineOnly,
+        sortBy: _sortBy,
+        search: _searchController.text.isNotEmpty ? _searchController.text : null,
       );
-    });
+
+      if (mounted) {
+        setState(() {
+          _teachers = teachers;
+          _filteredTeachers = teachers;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final categories = await _apiService.getCategories();
+      if (mounted) {
+        setState(() {
+          _categories = categories;
+        });
+      }
+    } catch (e) {
+      // Categories loading error, continue with empty list
+    }
   }
 
   void _filterTeachers() {
-    setState(() {
-      _filteredTeachers = _teachers.where((teacher) {
-        // Search filter
-        if (_searchController.text.isNotEmpty) {
-          final searchTerm = _searchController.text.toLowerCase();
-          final userName = (teacher.user?.name ?? '').toLowerCase();
-          final bioText = (teacher.bio ?? '').toLowerCase();
-          if (!userName.contains(searchTerm) && !bioText.contains(searchTerm)) {
-            return false;
-          }
-        }
-        
-        // Category filter
-        if (_selectedCategory.isNotEmpty) {
-          if (!(teacher.categories?.any((cat) => cat.name == _selectedCategory) ?? false)) {
-            return false;
-          }
-        }
-        
-        // Price filter
-        if ((teacher.priceHour ?? 0) < _minPrice || (teacher.priceHour ?? 0) > _maxPrice) {
-          return false;
-        }
-        
-        // Rating filter
-        if (teacher.ratingAvg < _minRating) {
-          return false;
-        }
-        
-        // Online filter
-        if (_onlineOnly && !teacher.onlineAvailable) {
-          return false;
-        }
-        
-        return true;
-      }).toList();
-      
-      // Sort teachers
-      _sortTeachers();
-    });
+    // Gerçek API kullandığımız için filtreleme API'de yapılıyor
+    // Bu metod artık sadece arama kutusundaki değişiklikleri API'ye gönderiyor
+    _loadTeachers();
   }
 
-  void _sortTeachers() {
-    switch (_sortBy) {
-      case 'rating':
-        _filteredTeachers.sort((a, b) => b.ratingAvg.compareTo(a.ratingAvg));
-        break;
-      case 'price_low':
-        _filteredTeachers.sort((a, b) => (a.priceHour ?? 0).compareTo(b.priceHour ?? 0));
-        break;
-      case 'price_high':
-        _filteredTeachers.sort((a, b) => (b.priceHour ?? 0).compareTo(a.priceHour ?? 0));
-        break;
-      case 'recent':
-        _filteredTeachers.sort((a, b) => (b.id ?? 0).compareTo(a.id ?? 0));
-        break;
-      case 'popular':
-        _filteredTeachers.sort((a, b) => b.ratingCount.compareTo(a.ratingCount));
-        break;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: _buildAppBar(),
       body: FadeTransition(
         opacity: _fadeAnimation,
@@ -221,9 +172,11 @@ class _SearchScreenState extends State<SearchScreen>
               Expanded(
                 child: _isLoading
                     ? CustomWidgets.customLoading(message: 'Öğretmenler yükleniyor...')
-                    : _filteredTeachers.isEmpty
-                        ? _buildEmptyState()
-                        : _buildResults(),
+                    : _error != null
+                        ? _buildErrorState()
+                        : _filteredTeachers.isEmpty
+                            ? _buildEmptyState()
+                            : _buildResults(),
               ),
             ],
           ),
@@ -234,12 +187,24 @@ class _SearchScreenState extends State<SearchScreen>
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: const Text('Öğretmen Ara'),
+      title: const Text(
+        'Öğretmen Ara',
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+      ),
       centerTitle: true,
       elevation: 0,
+      backgroundColor: const Color(0xFFF8FAFC),
+      foregroundColor: AppTheme.textPrimary,
+      toolbarHeight: 50,
       actions: [
         IconButton(
-          icon: Icon(_isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded),
+          icon: Icon(
+            _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
+            size: 20,
+          ),
           onPressed: () {
             setState(() {
               _isGridView = !_isGridView;
@@ -253,12 +218,12 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildSearchAndFilters() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.grey200,
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -267,23 +232,62 @@ class _SearchScreenState extends State<SearchScreen>
       child: Column(
         children: [
           // Search Bar
-          CustomWidgets.customTextField(
-            label: 'Öğretmen ara',
-            hintText: 'İsim, konu veya beceri ara',
-            controller: _searchController,
-            prefixIcon: const Icon(Icons.search_rounded),
-          ),
+          _buildSearchBar(),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
           // Quick Filters
           _buildQuickFilters(),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           
           // Advanced Filters Button
           _buildAdvancedFiltersButton(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.grey200),
+      ),
+      child: TextField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        onChanged: (value) {
+          _filterTeachers();
+        },
+        decoration: InputDecoration(
+          hintText: 'İsim, konu veya beceri ara...',
+          hintStyle: TextStyle(
+            color: Colors.grey[500],
+            fontSize: 14,
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: AppTheme.grey400,
+            size: 20,
+          ),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(
+                    Icons.clear_rounded,
+                    color: AppTheme.grey400,
+                    size: 18,
+                  ),
+                  onPressed: () {
+                    _searchController.clear();
+                    _filterTeachers();
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
       ),
     );
   }
@@ -303,16 +307,16 @@ class _SearchScreenState extends State<SearchScreen>
               _filterTeachers();
             },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           ..._categories.take(6).map((category) {
             return Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 6),
               child: _buildFilterChip(
-                category,
-                _selectedCategory == category,
+                category.name,
+                _selectedCategory == category.name,
                 () {
                   setState(() {
-                    _selectedCategory = _selectedCategory == category ? '' : category;
+                    _selectedCategory = _selectedCategory == category.name ? '' : category.name;
                   });
                   _filterTeachers();
                 },
@@ -328,10 +332,10 @@ class _SearchScreenState extends State<SearchScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryBlue : AppTheme.grey100,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: isSelected
               ? null
               : Border.all(color: AppTheme.grey300),
@@ -340,7 +344,7 @@ class _SearchScreenState extends State<SearchScreen>
           label,
           style: TextStyle(
             color: isSelected ? Colors.white : AppTheme.grey700,
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -354,28 +358,34 @@ class _SearchScreenState extends State<SearchScreen>
         Expanded(
           child: OutlinedButton.icon(
             onPressed: _showAdvancedFilters,
-            icon: const Icon(Icons.tune_rounded, size: 18),
-            label: const Text('Gelişmiş Filtreler'),
+            icon: const Icon(Icons.tune_rounded, size: 16),
+            label: const Text(
+              'Filtreler',
+              style: TextStyle(fontSize: 12),
+            ),
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: AppTheme.grey300),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8),
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         OutlinedButton.icon(
           onPressed: _showSortOptions,
-          icon: const Icon(Icons.sort_rounded, size: 18),
-          label: Text(_sortOptions.firstWhere((option) => option['value'] == _sortBy)['label']),
+          icon: const Icon(Icons.sort_rounded, size: 16),
+          label: Text(
+            _sortOptions.firstWhere((option) => option['value'] == _sortBy)['label'],
+            style: const TextStyle(fontSize: 12),
+          ),
           style: OutlinedButton.styleFrom(
             side: BorderSide(color: AppTheme.grey300),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 8),
           ),
         ),
       ],
@@ -387,15 +397,16 @@ class _SearchScreenState extends State<SearchScreen>
       children: [
         // Results Header
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${_filteredTeachers.length} öğretmen bulundu',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                '${_filteredTeachers.length} öğretmen',
+                style: TextStyle(
                   color: AppTheme.grey700,
                   fontWeight: FontWeight.w500,
+                  fontSize: 14,
                 ),
               ),
               TextButton(
@@ -411,11 +422,15 @@ class _SearchScreenState extends State<SearchScreen>
                   });
                   _filterTeachers();
                 },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                ),
                 child: Text(
                   'Temizle',
                   style: TextStyle(
                     color: AppTheme.primaryBlue,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
                   ),
                 ),
               ),
@@ -423,7 +438,7 @@ class _SearchScreenState extends State<SearchScreen>
           ),
         ),
         
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         
         // Teachers List/Grid
         Expanded(
@@ -437,20 +452,23 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildListView() {
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       itemCount: _filteredTeachers.length,
       itemBuilder: (context, index) {
         final teacher = _filteredTeachers[index];
-        return TeacherCard(
-          teacher: teacher,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            // TODO: Navigate to teacher profile
-          },
-          onFavoriteToggle: () {
-            HapticFeedback.lightImpact();
-            // TODO: Toggle favorite
-          },
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: TeacherCard(
+            teacher: teacher,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              // TODO: Navigate to teacher profile
+            },
+            onFavoriteToggle: () {
+              HapticFeedback.lightImpact();
+              // TODO: Toggle favorite
+            },
+          ),
         );
       },
     );
@@ -458,12 +476,12 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildGridView() {
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.8,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
       ),
       itemCount: _filteredTeachers.length,
       itemBuilder: (context, index) {
@@ -486,32 +504,44 @@ class _SearchScreenState extends State<SearchScreen>
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.search_off_rounded,
-              size: 64,
-              color: Colors.grey,
+              size: 48,
+              color: Colors.grey[400],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               'Öğretmen bulunamadı',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.grey900,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               'Arama kriterlerinizi değiştirerek tekrar deneyin',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey,
-                  ),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
+            Text(
+              'Debug: _teachers.length = ${_teachers.length}, _filteredTeachers.length = ${_filteredTeachers.length}, _isLoading = $_isLoading, _error = $_error',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.red,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () {
                 _searchController.clear();
@@ -609,6 +639,61 @@ class _SearchScreenState extends State<SearchScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: Colors.red[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Bir hata oluştu',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.red[400],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _error ?? 'Bilinmeyen hata',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Debug: _teachers.length = ${_teachers.length}, _filteredTeachers.length = ${_filteredTeachers.length}, _isLoading = $_isLoading',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.red,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _loadInitialData,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text('Tekrar Dene'),
+          ),
+        ],
       ),
     );
   }

@@ -12,7 +12,8 @@ class MessageReaction extends Model
     protected $fillable = [
         'message_id',
         'user_id',
-        'reaction',
+        'reaction_type',
+        'emoji',
     ];
 
     /**
@@ -29,5 +30,21 @@ class MessageReaction extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Scope for reactions by type
+     */
+    public function scopeByType($query, $type)
+    {
+        return $query->where('reaction_type', $type);
+    }
+
+    /**
+     * Scope for reactions by emoji
+     */
+    public function scopeByEmoji($query, $emoji)
+    {
+        return $query->where('emoji', $emoji);
     }
 }

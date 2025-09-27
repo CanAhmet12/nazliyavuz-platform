@@ -3,12 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import '../../main.dart';
 import '../../models/user.dart';
+import '../../models/teacher.dart';
+import '../../services/api_service.dart';
 import '../teachers/enhanced_teachers_screen.dart';
+import '../teachers/teacher_detail_screen.dart';
 import '../reservations/enhanced_reservations_screen.dart';
 import '../profile/enhanced_profile_screen.dart';
 import '../search/search_screen.dart';
 import '../notifications/notification_screen.dart';
-import '../lessons/enhanced_lessons_screen.dart';
+import '../lessons/student_lessons_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_widgets.dart';
 import '../chat/chat_list_screen.dart';
@@ -28,6 +31,10 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   // Performance optimization
   final List<RepaintBoundary> _cachedScreens = [];
   late AnimationController _fabAnimationController;
+  
+  // Recommended teachers data
+  List<Teacher> _recommendedTeachers = [];
+  bool _isLoadingTeachers = false;
 
   @override
   void initState() {
@@ -41,6 +48,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _fabAnimationController.forward();
+        _loadRecommendedTeachers();
       }
     });
   }
@@ -49,6 +57,36 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   void dispose() {
     _fabAnimationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRecommendedTeachers() async {
+    if (_isLoadingTeachers) return;
+    
+    setState(() {
+      _isLoadingTeachers = true;
+    });
+
+    try {
+      final apiService = context.read<ApiService>();
+      final teachers = await apiService.getTeachers(
+        sortBy: 'rating_desc',
+        page: 1,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _recommendedTeachers = teachers.take(3).toList();
+          _isLoadingTeachers = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingTeachers = false;
+        });
+      }
+      print('Error loading recommended teachers: $e');
+    }
   }
 
   @override
@@ -71,7 +109,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
             children: [
               RepaintBoundary(child: _buildStudentHomeTab(user)),
               const RepaintBoundary(child: EnhancedTeachersScreen()),
-              const RepaintBoundary(child: EnhancedLessonsScreen()),
+              const RepaintBoundary(child: StudentLessonsScreen()),
               const RepaintBoundary(child: EnhancedReservationsScreen()),
               const RepaintBoundary(child: EnhancedProfileScreen()),
             ],
@@ -181,13 +219,14 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         },
         backgroundColor: AppTheme.premiumGold,
         foregroundColor: AppTheme.grey900,
-        elevation: 12,
+        elevation: 8,
+        mini: true,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: const Icon(
           Icons.add_rounded,
-          size: 28,
+          size: 20,
         ),
       ),
     );
@@ -231,9 +270,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                 // Quick Actions Grid
                 GridView.count(
                   shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.2,
                   children: [
                     _buildQuickActionCard(
                       context,
@@ -322,34 +363,40 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 50,
-            height: 50,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               icon,
               color: color,
-              size: 24,
+              size: 20,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
               color: AppTheme.grey900,
+              fontSize: 12,
             ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: AppTheme.grey600,
+              fontSize: 10,
             ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -1144,24 +1191,184 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         const SizedBox(height: 12),
         SizedBox(
           height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: 3, // Show 3 placeholder cards
-            itemBuilder: (context, index) {
-              final color = _getTeacherColor(index);
-              return Container(
-                width: 160,
-                margin: EdgeInsets.only(right: index == 2 ? 0 : 16),
-                child: _buildPlaceholderTeacherCard(color),
-              );
-            },
-          ),
+          child: _isLoadingTeachers 
+              ? const Center(child: CircularProgressIndicator())
+              : _recommendedTeachers.isEmpty
+                  ? ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: 3, // Show 3 placeholder cards
+                      itemBuilder: (context, index) {
+                        final color = _getTeacherColor(index);
+                        return Container(
+                          width: 160,
+                          margin: EdgeInsets.only(right: index == 2 ? 0 : 16),
+                          child: _buildPlaceholderTeacherCard(color),
+                        );
+                      },
+                    )
+                  : ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: _recommendedTeachers.length,
+                      itemBuilder: (context, index) {
+                        final teacher = _recommendedTeachers[index];
+                        return Container(
+                          width: 160,
+                          margin: EdgeInsets.only(right: index == _recommendedTeachers.length - 1 ? 0 : 16),
+                          child: _buildRealTeacherCard(teacher),
+                        );
+                      },
+                    ),
         ),
       ],
     );
   }
 
+
+  Widget _buildRealTeacherCard(Teacher teacher) {
+    final categoryName = (teacher.categories?.isNotEmpty == true) 
+        ? teacher.categories!.first.name 
+        : 'Genel';
+    final categoryColors = _getCategoryColors(categoryName);
+    
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TeacherDetailScreen(teacher: teacher),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with gradient
+            Container(
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: categoryColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Center(
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  backgroundImage: teacher.user?.profilePhotoUrl != null
+                      ? NetworkImage(teacher.user!.profilePhotoUrl!)
+                      : null,
+                  child: teacher.user?.profilePhotoUrl == null
+                      ? Text(
+                          (teacher.user?.name?.substring(0, 1).toUpperCase()) ?? '?',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+            
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      teacher.user?.name ?? 'İsimsiz',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      categoryName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 12,
+                                color: Colors.amber,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${teacher.rating?.toStringAsFixed(1) ?? '0.0'}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.amber,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '₺${teacher.priceHour?.toInt() ?? 0}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF3B82F6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildPlaceholderTeacherCard(Color color) {
     return Container(
@@ -1267,6 +1474,39 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
       const Color(0xFFEF4444),
     ];
     return colors[index % colors.length];
+  }
+
+  List<Color> _getCategoryColors(String categoryName) {
+    switch (categoryName.toLowerCase()) {
+      case 'matematik':
+      case 'fizik':
+      case 'kimya':
+      case 'biyoloji':
+        return [const Color(0xFF3B82F6), const Color(0xFF3B82F6).withOpacity(0.8)];
+      case 'türkçe':
+      case 'edebiyat':
+      case 'tarih':
+      case 'coğrafya':
+        return [const Color(0xFF10B981), const Color(0xFF10B981).withOpacity(0.8)];
+      case 'ingilizce':
+      case 'almanca':
+      case 'fransızca':
+        return [const Color(0xFFF59E0B), const Color(0xFFF59E0B).withOpacity(0.8)];
+      case 'programlama':
+      case 'web tasarımı':
+      case 'bilgisayar':
+        return [const Color(0xFF8B5CF6), const Color(0xFF8B5CF6).withOpacity(0.8)];
+      case 'müzik':
+      case 'resim':
+      case 'sanat':
+        return [const Color(0xFFEF4444), const Color(0xFFEF4444).withOpacity(0.8)];
+      case 'spor':
+      case 'fitness':
+      case 'yoga':
+        return [const Color(0xFFEC4899), const Color(0xFFEC4899).withOpacity(0.8)];
+      default:
+        return [const Color(0xFF6B7280), const Color(0xFF6B7280).withOpacity(0.8)];
+    }
   }
 
 }

@@ -126,6 +126,7 @@ class User extends Equatable {
   bool get isTeacherPending => isTeacher && teacherStatus == 'pending';
   bool get isTeacherRejected => isTeacher && teacherStatus == 'rejected';
 
+
   @override
   List<Object?> get props => [
         id,

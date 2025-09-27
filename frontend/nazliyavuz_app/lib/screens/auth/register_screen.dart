@@ -16,7 +16,7 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -25,6 +25,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String _selectedRole = 'student';
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutQuart,
+    ));
+    _animationController.forward();
+  }
 
   @override
   void dispose() {
@@ -32,6 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -51,94 +72,138 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
         child: SafeArea(
-          child: Form(
-            key: _formKey,
+          child: FadeTransition(
+            opacity: _fadeAnimation,
             child: Column(
               children: [
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: 20),
-                        
-                        // Premium Header
-                        RepaintBoundary(child: _buildPremiumHeader()),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Başlık
-                        RepaintBoundary(
-                          child: Column(
-                            children: [
-                              Text(
-                                'Hesap Oluştur',
-                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Yeni hesabınızı oluşturun',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                                textAlign: TextAlign.center,
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 20),
+
+                          // Logo ve Başlık
+                          RepaintBoundary(child: _buildHeader()),
+
+                          const SizedBox(height: 32),
+
+                        // Ad Soyad Alanı
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.premiumGold.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Ad Soyad Alanı
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Ad Soyad',
-                            prefixIcon: Icon(Icons.person_outlined),
+                          child: TextFormField(
+                            controller: _nameController,
+                            decoration: InputDecoration(
+                              labelText: 'Ad Soyad',
+                              prefixIcon: Icon(Icons.person_outlined, color: AppTheme.premiumGold),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.grey300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.premiumGold, width: 2),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Ad soyad gerekli';
+                              }
+                              if (value.length < 2) {
+                                return 'Ad soyad en az 2 karakter olmalı';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Ad soyad gerekli';
-                            }
-                            if (value.length < 2) {
-                              return 'Ad soyad en az 2 karakter olmalı';
-                            }
-                            return null;
-                          },
                         ),
                         const SizedBox(height: 16),
 
                         // E-posta Alanı
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'E-posta',
-                            prefixIcon: Icon(Icons.email_outlined),
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.premiumGold.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'E-posta adresi gerekli';
-                            }
-                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                .hasMatch(value)) {
-                              return 'Geçerli bir e-posta adresi girin';
-                            }
-                            return null;
-                          },
+                          child: TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: 'E-posta',
+                              prefixIcon: Icon(Icons.email_outlined, color: AppTheme.premiumGold),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.grey300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.premiumGold, width: 2),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'E-posta adresi gerekli';
+                              }
+                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                  .hasMatch(value)) {
+                                return 'Geçerli bir e-posta adresi girin';
+                              }
+                              return null;
+                            },
+                          ),
                         ),
                         const SizedBox(height: 16),
 
                         // Rol Seçimi
-                        DropdownButtonFormField<String>(
-                          value: _selectedRole,
-                          decoration: const InputDecoration(
-                            labelText: 'Rol',
-                            prefixIcon: Icon(Icons.work_outlined),
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.premiumGold.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedRole,
+                            decoration: InputDecoration(
+                              labelText: 'Rol',
+                              prefixIcon: Icon(Icons.work_outlined, color: AppTheme.premiumGold),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.grey300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.premiumGold, width: 2),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
                           items: const [
                             DropdownMenuItem(
                               value: 'student',
@@ -155,28 +220,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             });
                           },
                         ),
+                        ),
                         const SizedBox(height: 16),
 
                         // Şifre Alanı
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Şifre',
-                            prefixIcon: const Icon(Icons.lock_outlined),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.premiumGold.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                            ),
+                            ],
                           ),
+                          child: TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Şifre',
+                              prefixIcon: Icon(Icons.lock_outlined, color: AppTheme.premiumGold),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: AppTheme.premiumGold,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.grey300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.premiumGold, width: 2),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Şifre gerekli';
@@ -187,28 +275,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             return null;
                           },
                         ),
+                        ),
                         const SizedBox(height: 16),
 
                         // Şifre Tekrar Alanı
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirmPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Şifre Tekrar',
-                            prefixIcon: const Icon(Icons.lock_outlined),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscureConfirmPassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.premiumGold.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscureConfirmPassword = !_obscureConfirmPassword;
-                                });
-                              },
-                            ),
+                            ],
                           ),
+                          child: TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            decoration: InputDecoration(
+                              labelText: 'Şifre Tekrar',
+                              prefixIcon: Icon(Icons.lock_outlined, color: AppTheme.premiumGold),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: AppTheme.premiumGold,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                                  });
+                                },
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.grey300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppTheme.premiumGold, width: 2),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Şifre tekrarı gerekli';
@@ -218,6 +329,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             }
                             return null;
                           },
+                        ),
                         ),
                         const SizedBox(height: 24),
 
@@ -253,19 +365,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             }
                           },
                           builder: (context, state) {
-                            return ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.premiumGold,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                            return Container(
+                              height: 56,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFF2D3748),
+                                    const Color(0xFF4A5568),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF2D3748).withOpacity(0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
                               ),
-                              onPressed: state is AuthLoading
-                                  ? null
-                                  : () async {
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: state is AuthLoading ? null : () async {
                                       if (kDebugMode) {
                                         print('📝 [REGISTER_SCREEN] Register button pressed');
                                         print('📝 [REGISTER_SCREEN] Form validation starting...');
@@ -337,47 +461,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         }
                                       }
                                     },
-                              child: state is AuthLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
-                                      ),
-                                    )
-                                  : const Text('Kayıt Ol'),
+                                  child: Center(
+                                    child: state is AuthLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                            ),
+                                          )
+                                        : Text(
+                                            'Kayıt Ol',
+                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                  ),
+                                ),
+                              ),
                             );
                           },
                         ),
                         const SizedBox(height: 24),
 
                         // Sosyal Medya Kayıt
-                        _buildSocialRegister(),
+                        RepaintBoundary(child: _buildSocialRegister()),
 
                         const SizedBox(height: 16),
 
                         // Giriş Yap Linki
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Zaten hesabınız var mı? ',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text('Giriş Yap'),
-                            ),
-                          ],
+                        RepaintBoundary(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Zaten hesabınız var mı? ',
+                                style: TextStyle(color: AppTheme.grey600),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                child: Text(
+                                  'Giriş Yap',
+                                  style: TextStyle(
+                                    color: AppTheme.primaryBlue,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         
                         const SizedBox(height: 40),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -464,9 +607,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       style: OutlinedButton.styleFrom(
         side: BorderSide(color: Colors.grey[300]!),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        minimumSize: const Size(double.infinity, 48),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -571,7 +715,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Widget _buildPremiumHeader() {
+  Widget _buildHeader() {
     return Column(
       children: [
         // Premium Logo
@@ -596,10 +740,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.person_add_rounded,
-            size: 40,
-            color: Colors.white,
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: 40,
+            height: 40,
+            fit: BoxFit.contain,
+            // color: Colors.white, // Bu logo'yu beyaz yapıyor!
+            errorBuilder: (context, error, stackTrace) {
+              debugPrint('❌ [REGISTER] Logo error: $error');
+              return Icon(
+                Icons.school_rounded,
+                size: 40,
+                color: Colors.white,
+              );
+            },
           ),
         ),
         
@@ -612,14 +766,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ).createShader(bounds),
-          child: Text(
-            'Hesap Oluştur',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+            child: Text(
+              'Rota Akademi',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
         ),
         
         const SizedBox(height: 8),
@@ -637,3 +791,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+

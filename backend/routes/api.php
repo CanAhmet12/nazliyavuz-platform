@@ -103,16 +103,27 @@ Route::prefix('v1')->group(function () {
         Route::middleware('role:teacher')->group(function () {
             Route::post('/teacher/profile', [TeacherController::class, 'store']);
             Route::put('/teacher/profile', [TeacherController::class, 'update']);
+            Route::get('/teacher/students', [TeacherController::class, 'getStudents']);
+            Route::get('/teacher/lessons', [TeacherController::class, 'getLessons']);
+            Route::get('/teacher/statistics', [TeacherController::class, 'getStatistics']);
             Route::get('/teacher/reservations', [ReservationController::class, 'teacherReservations']);
             Route::put('/reservations/{reservation}/status', [ReservationController::class, 'updateStatus']);
         });
         
+        // Reservations (accessible by both students and teachers)
+        Route::get('/reservations', [ReservationController::class, 'index']);
+        Route::get('/reservations/statistics', [ReservationController::class, 'getStatistics']);
+        Route::post('/reservations', [ReservationController::class, 'store']);
+        Route::put('/reservations/{reservation}/status', [ReservationController::class, 'updateStatus']);
+        Route::delete('/reservations/{reservation}', [ReservationController::class, 'destroy']);
+        
+        // Lessons (accessible by both students and teachers)
+        Route::get('/lessons/{lesson}', [LessonController::class, 'show']);
+        Route::put('/lessons/notes', [LessonController::class, 'updateNotes']);
+        Route::post('/lessons/rate', [LessonController::class, 'rateLesson']);
+        
         // Student routes
         Route::middleware('role:student')->group(function () {
-            Route::get('/student/reservations', [ReservationController::class, 'studentReservations']);
-            Route::post('/reservations', [ReservationController::class, 'store']);
-            Route::put('/reservations/{reservation}', [ReservationController::class, 'update']);
-            Route::delete('/reservations/{reservation}', [ReservationController::class, 'destroy']);
             
             // Favorites
             Route::get('/favorites', [TeacherController::class, 'favorites']);
@@ -191,8 +202,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/chat/video-call', [ChatController::class, 'sendVideoCallInvitation']);
             Route::post('/chat/video-call-response', [ChatController::class, 'respondToVideoCall']);
         
-        // Admin routes (middleware temporarily disabled for testing)
-        Route::group([], function () {
+        // Admin routes
+        Route::middleware('role:admin')->group(function () {
             Route::get('/admin/dashboard', [AdminController::class, 'dashboard']);
             Route::get('/admin/analytics', [AdminController::class, 'getAnalytics']);
             Route::put('/admin/users/{user}/status', [AdminController::class, 'updateUserStatus']);

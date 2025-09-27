@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../../models/reservation.dart';
 import '../../services/api_service.dart';
@@ -71,7 +72,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
         'status': 'success',
       });
     } catch (e) {
-      print('Payment confirmation error: $e');
+      if (kDebugMode) {
+        print('Payment confirmation error: $e');
+      }
     }
   }
 
@@ -322,6 +325,5 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
       MaterialPageRoute(builder: (context) => const HomeScreen()),
       (route) => false,
     );
-    // TODO: Navigate to reservations tab
   }
 }

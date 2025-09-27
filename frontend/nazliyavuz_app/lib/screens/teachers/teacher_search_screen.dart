@@ -91,7 +91,15 @@ class _TeacherSearchScreenState extends State<TeacherSearchScreen>
 
   Future<void> _loadPopularSearches() async {
     try {
-      // Mock data - gerçek implementasyonda API'den gelecek
+      // Gerçek kategorileri API'den çek
+      final categories = await _apiService.getCategories();
+      if (mounted) {
+        setState(() {
+          _popularSearches = categories.take(8).map((cat) => cat.name).toList();
+        });
+      }
+    } catch (e) {
+      // Fallback to default categories
       if (mounted) {
         setState(() {
           _popularSearches = [
@@ -106,8 +114,6 @@ class _TeacherSearchScreenState extends State<TeacherSearchScreen>
           ];
         });
       }
-    } catch (e) {
-      // Popular searches loading error: $e
     }
   }
 
@@ -196,7 +202,7 @@ class _TeacherSearchScreenState extends State<TeacherSearchScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: _buildAppBar(),
       body: FadeTransition(
         opacity: _fadeAnimation,
@@ -223,14 +229,15 @@ class _TeacherSearchScreenState extends State<TeacherSearchScreen>
       title: const Text(
         'Öğretmen Ara',
         style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
         ),
       ),
       centerTitle: true,
       elevation: 0,
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: const Color(0xFFF8FAFC),
       foregroundColor: AppTheme.textPrimary,
+      toolbarHeight: 50,
     );
   }
 
@@ -243,7 +250,7 @@ class _TeacherSearchScreenState extends State<TeacherSearchScreen>
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -253,16 +260,16 @@ class _TeacherSearchScreenState extends State<TeacherSearchScreen>
         focusNode: _searchFocusNode,
         decoration: InputDecoration(
           hintText: 'Öğretmen, ders veya konu ara...',
-          hintStyle: TextStyle(color: AppTheme.grey500),
-          prefixIcon: Icon(Icons.search_rounded, color: AppTheme.grey500),
+          hintStyle: TextStyle(color: AppTheme.grey500, fontSize: 14),
+          prefixIcon: Icon(Icons.search_rounded, color: AppTheme.grey500, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear_rounded, color: AppTheme.grey500),
+                  icon: Icon(Icons.clear_rounded, color: AppTheme.grey500, size: 18),
                   onPressed: _clearSearch,
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
         onChanged: (value) {
           setState(() {});
@@ -282,25 +289,25 @@ class _TeacherSearchScreenState extends State<TeacherSearchScreen>
           // Recent Searches
           if (_recentSearches.isNotEmpty) ...[
             _buildSectionTitle('Son Aramalar', Icons.history_rounded),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             _buildSearchChips(_recentSearches, isRecent: true),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
           ],
           
           // Popular Searches
           if (_popularSearches.isNotEmpty) ...[
             _buildSectionTitle('Popüler Aramalar', Icons.trending_up_rounded),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             _buildSearchChips(_popularSearches),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
           ],
           
           // Trending Teachers
           if (_trendingTeachers.isNotEmpty) ...[
             _buildSectionTitle('Trend Öğretmenler', Icons.local_fire_department_rounded),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             _buildTrendingTeachers(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
           ],
         ],
       ),
@@ -310,12 +317,12 @@ class _TeacherSearchScreenState extends State<TeacherSearchScreen>
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: AppTheme.primaryBlue, size: 20),
-        const SizedBox(width: 8),
+        Icon(icon, color: AppTheme.primaryBlue, size: 16),
+        const SizedBox(width: 6),
         Text(
           title,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: AppTheme.textPrimary,
           ),

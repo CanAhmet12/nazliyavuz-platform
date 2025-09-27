@@ -13,27 +13,29 @@ class Lesson extends Model
         'reservation_id',
         'teacher_id',
         'student_id',
-        'status',
-        'start_time',
-        'end_time',
+        'scheduled_at',
+        'started_at',
+        'ended_at',
         'duration_minutes',
+        'status',
         'notes',
         'rating',
         'feedback',
+        'rated_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'start_time' => 'datetime',
-            'end_time' => 'datetime',
-            'duration_minutes' => 'integer',
-            'rating' => 'integer',
+            'scheduled_at' => 'datetime',
+            'started_at' => 'datetime',
+            'ended_at' => 'datetime',
+            'rated_at' => 'datetime',
         ];
     }
 
     /**
-     * Get the reservation associated with this lesson
+     * Get the reservation for this lesson
      */
     public function reservation()
     {
@@ -41,7 +43,7 @@ class Lesson extends Model
     }
 
     /**
-     * Get the teacher of this lesson
+     * Get the teacher for this lesson
      */
     public function teacher()
     {
@@ -49,7 +51,7 @@ class Lesson extends Model
     }
 
     /**
-     * Get the student of this lesson
+     * Get the student for this lesson
      */
     public function student()
     {
@@ -57,27 +59,19 @@ class Lesson extends Model
     }
 
     /**
-     * Scope for lessons by status
+     * Scope for scheduled lessons
      */
-    public function scopeByStatus($query, string $status)
+    public function scopeScheduled($query)
     {
-        return $query->where('status', $status);
+        return $query->where('status', 'scheduled');
     }
 
     /**
-     * Scope for lessons by teacher
+     * Scope for in progress lessons
      */
-    public function scopeByTeacher($query, int $teacherId)
+    public function scopeInProgress($query)
     {
-        return $query->where('teacher_id', $teacherId);
-    }
-
-    /**
-     * Scope for lessons by student
-     */
-    public function scopeByStudent($query, int $studentId)
-    {
-        return $query->where('student_id', $studentId);
+        return $query->where('status', 'in_progress');
     }
 
     /**
@@ -89,183 +83,69 @@ class Lesson extends Model
     }
 
     /**
-     * Scope for lessons in progress
+     * Scope for cancelled lessons
      */
-    public function scopeInProgress($query)
+    public function scopeCancelled($query)
     {
-        return $query->where('status', 'in_progress');
+        return $query->where('status', 'cancelled');
     }
 
     /**
-     * Scope for lessons not started
+     * Scope for upcoming lessons
      */
-    public function scopeNotStarted($query)
+    public function scopeUpcoming($query)
     {
-        return $query->where('status', 'not_started');
+        return $query->where('scheduled_at', '>', now());
     }
 
     /**
-     * Check if lesson is completed
+     * Scope for past lessons
      */
-    public function getIsCompletedAttribute(): bool
+    public function scopePast($query)
     {
-        return $this->status === 'completed';
+        return $query->where('scheduled_at', '<', now());
     }
 
     /**
-     * Check if lesson is in progress
+     * Get formatted duration
      */
-    public function getIsInProgressAttribute(): bool
-    {
-        return $this->status === 'in_progress';
-    }
-
-    /**
-     * Check if lesson is not started
-     */
-    public function getIsNotStartedAttribute(): bool
-    {
-        return $this->status === 'not_started';
-    }
-
-    /**
-     * Get status in Turkish
-     */
-    public function getStatusInTurkishAttribute(): string
-    {
-        $statuses = [
-            'not_started' => 'Başlamadı',
-            'in_progress' => 'Devam Ediyor',
-            'completed' => 'Tamamlandı',
-            'cancelled' => 'İptal Edildi',
-        ];
-
-        return $statuses[$this->status] ?? $this->status;
-    }
-
-    /**
-     * Get duration in human readable format
-     */
-    public function getDurationFormattedAttribute(): ?string
+    public function getFormattedDurationAttribute()
     {
         if (!$this->duration_minutes) {
-            return null;
+            return 'N/A';
         }
 
         $hours = floor($this->duration_minutes / 60);
         $minutes = $this->duration_minutes % 60;
 
         if ($hours > 0) {
-            return "{$hours} saat {$minutes} dakika";
+            return $hours . 'sa ' . $minutes . 'dk';
         }
 
-        return "{$minutes} dakika";
+        return $minutes . 'dk';
     }
 
     /**
-     * Get rating stars
+     * Check if lesson is overdue
      */
-    public function getRatingStarsAttribute(): string
+    public function getIsOverdueAttribute()
     {
-        if (!$this->rating) {
-            return '';
-        }
-
-        return str_repeat('★', $this->rating) . str_repeat('☆', 5 - $this->rating);
-    }
-
-    /**
-     * Get time since lesson started
-     */
-    public function getTimeSinceStartedAttribute(): ?string
-    {
-        return $this->start_time ? $this->start_time->diffForHumans() : null;
-    }
-
-    /**
-     * Get time since lesson ended
-     */
-    public function getTimeSinceEndedAttribute(): ?string
-    {
-        return $this->end_time ? $this->end_time->diffForHumans() : null;
-    }
-
-    /**
-     * Calculate and update duration
-     */
-    public function updateDuration(): void
-    {
-        if ($this->start_time && $this->end_time) {
-            $this->duration_minutes = $this->end_time->diffInMinutes($this->start_time);
-            $this->save();
-        }
+        return $this->status === 'scheduled' && $this->scheduled_at < now();
     }
 
     /**
      * Check if lesson can be started
      */
-    public function canBeStarted(): bool
+    public function getCanBeStartedAttribute()
     {
-        return $this->status === 'not_started' && 
-               $this->reservation && 
-               $this->reservation->status === 'accepted';
+        return $this->status === 'scheduled' && $this->scheduled_at <= now()->addMinutes(15);
     }
 
     /**
-     * Check if lesson can be ended
+     * Check if lesson can be rated
      */
-    public function canBeEnded(): bool
+    public function getCanBeRatedAttribute()
     {
-        return $this->status === 'in_progress' && $this->start_time;
-    }
-
-    /**
-     * Get average rating for teacher
-     */
-    public static function getAverageRatingForTeacher(int $teacherId): float
-    {
-        return static::where('teacher_id', $teacherId)
-                    ->whereNotNull('rating')
-                    ->avg('rating') ?? 0;
-    }
-
-    /**
-     * Get total lessons count for teacher
-     */
-    public static function getTotalLessonsForTeacher(int $teacherId): int
-    {
-        return static::where('teacher_id', $teacherId)
-                    ->where('status', 'completed')
-                    ->count();
-    }
-
-    /**
-     * Get total lessons count for student
-     */
-    public static function getTotalLessonsForStudent(int $studentId): int
-    {
-        return static::where('student_id', $studentId)
-                    ->where('status', 'completed')
-                    ->count();
-    }
-
-    /**
-     * Get total duration for teacher
-     */
-    public static function getTotalDurationForTeacher(int $teacherId): int
-    {
-        return static::where('teacher_id', $teacherId)
-                    ->where('status', 'completed')
-                    ->sum('duration_minutes');
-    }
-
-    /**
-     * Get total duration for student
-     */
-    public static function getTotalDurationForStudent(int $studentId): int
-    {
-        return static::where('student_id', $studentId)
-                    ->where('status', 'completed')
-                    ->sum('duration_minutes');
+        return $this->status === 'completed' && !$this->rating;
     }
 }

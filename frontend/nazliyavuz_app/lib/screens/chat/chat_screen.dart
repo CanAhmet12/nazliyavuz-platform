@@ -6,7 +6,7 @@ import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../video_call/video_call_screen.dart';
 import '../files/file_sharing_screen.dart';
-import '../assignments/assignment_screen.dart';
+import '../assignments/create_assignment_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final User otherUser;
@@ -97,7 +97,14 @@ class _ChatScreenState extends State<ChatScreen> {
       _messageController.clear();
       _scrollToBottom();
     } catch (e) {
-      _showErrorSnackBar('Mesaj gönderilirken hata oluştu: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Mesaj gönderilirken hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() {
         _isSending = false;
@@ -130,7 +137,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 gradient: LinearGradient(
                   colors: [
                     AppTheme.primaryBlue,
-                    AppTheme.accentPurple,
+                    AppTheme.primaryBlue.withOpacity(0.8),
                   ],
                 ),
               ),
@@ -178,7 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     widget.otherUser.role == 'teacher' ? 'Öğretmen' : 'Öğrenci',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white.withOpacity(0.8),
                     ),
                   ),
                 ],
@@ -316,141 +323,86 @@ class _ChatScreenState extends State<ChatScreen> {
       itemCount: _messages.length,
       itemBuilder: (context, index) {
         final message = _messages[index];
-        final isMe = message.senderId == _getCurrentUserId();
-        final showDate = _shouldShowDate(index);
+        final isCurrentUser = message.senderId != widget.otherUser.id;
         
-        return Column(
-          children: [
-            if (showDate) _buildDateSeparator(message.createdAt),
-            _buildMessageBubble(message, isMe),
-          ],
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: _buildMessageBubble(message, isCurrentUser),
         );
       },
     );
   }
 
-  Widget _buildDateSeparator(DateTime date) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        DateFormat('dd MMMM yyyy', 'tr').format(date),
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMessageBubble(Message message, bool isMe) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!isMe) ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.primaryBlue.withValues(alpha: 0.7),
-                    AppTheme.accentPurple.withValues(alpha: 0.7),
-                  ],
-                ),
-              ),
-              child: widget.otherUser.profilePhotoUrl == null
-                  ? Text(
-                      widget.otherUser.name[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        widget.otherUser.profilePhotoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Text(
-                            widget.otherUser.name[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.7,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isMe ? AppTheme.primaryBlue : Colors.grey[100],
-                borderRadius: BorderRadius.circular(20).copyWith(
-                  bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(4),
-                  bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(20),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    message.content,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: isMe ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat('HH:mm').format(message.createdAt),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isMe 
-                          ? Colors.white.withValues(alpha: 0.7)
-                          : Colors.grey[500],
-                    ),
-                  ),
-                ],
+  Widget _buildMessageBubble(Message message, bool isCurrentUser) {
+    return Row(
+      mainAxisAlignment: isCurrentUser 
+          ? MainAxisAlignment.end 
+          : MainAxisAlignment.start,
+      children: [
+        if (!isCurrentUser) ...[
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+            child: Text(
+              widget.otherUser.name[0].toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryBlue,
               ),
             ),
           ),
-          if (isMe) ...[
-            const SizedBox(width: 8),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-              ),
-              child: const Icon(
-                Icons.person,
-                color: AppTheme.primaryBlue,
-                size: 16,
+          const SizedBox(width: 8),
+        ],
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isCurrentUser 
+                  ? AppTheme.primaryBlue 
+                  : Colors.grey[200],
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.content,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isCurrentUser ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  DateFormat('HH:mm').format(message.createdAt),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isCurrentUser 
+                        ? Colors.white.withOpacity(0.7)
+                        : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (isCurrentUser) ...[
+          const SizedBox(width: 8),
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: AppTheme.primaryBlue,
+            child: const Text(
+              'A',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -461,9 +413,9 @@ class _ChatScreenState extends State<ChatScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -480,60 +432,16 @@ class _ChatScreenState extends State<ChatScreen> {
                 decoration: const InputDecoration(
                   hintText: 'Mesajınızı yazın...',
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
                 maxLines: null,
-                textInputAction: TextInputAction.newline,
+                textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _sendMessage(),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.add_rounded),
-            onSelected: _handleMenuSelection,
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'video_call',
-                child: Row(
-                  children: [
-                    Icon(Icons.video_call_rounded),
-                    SizedBox(width: 8),
-                    Text('Video Görüşme'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'audio_call',
-                child: Row(
-                  children: [
-                    Icon(Icons.call_rounded),
-                    SizedBox(width: 8),
-                    Text('Sesli Görüşme'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'file_sharing',
-                child: Row(
-                  children: [
-                    Icon(Icons.folder_shared_rounded),
-                    SizedBox(width: 8),
-                    Text('Dosya Paylaşımı'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'assignments',
-                child: Row(
-                  children: [
-                    Icon(Icons.assignment_rounded),
-                    SizedBox(width: 8),
-                    Text('Ödevler'),
-                  ],
-                ),
-              ),
-            ],
           ),
           const SizedBox(width: 8),
           Container(
@@ -548,12 +456,12 @@ class _ChatScreenState extends State<ChatScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
                         strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
                   : const Icon(
-                      Icons.send_rounded,
+                      Icons.send,
                       color: Colors.white,
                     ),
             ),
@@ -563,277 +471,103 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  bool _shouldShowDate(int index) {
-    if (index == 0) return true;
-    
-    final currentDate = _messages[index].createdAt;
-    final previousDate = _messages[index - 1].createdAt;
-    
-    return !DateUtils.isSameDay(currentDate, previousDate);
-  }
-
-  int _getCurrentUserId() {
-    // Bu bilgiyi AuthBloc'tan almalıyız, şimdilik mock olarak 1 döndürüyoruz
-    // TODO: AuthBloc'tan gerçek user ID'yi al
-    return 1;
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
   void _showChatOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Handle
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.assignment),
+            title: const Text('Ödev Ver'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CreateAssignmentScreen(student: widget.otherUser),
                 ),
-                const SizedBox(height: 24),
-                
-                Text(
-                  'Chat Seçenekleri',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[900],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Options Grid
-                GridView.count(
-                  shrinkWrap: true,
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  children: [
-                    _buildChatOptionCard(
-                      context,
-                      icon: Icons.video_call_rounded,
-                      title: 'Video Görüşme',
-                      subtitle: 'Video görüşme başlat',
-                      color: const Color(0xFF3B82F6),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => VideoCallScreen(
-                              otherUser: widget.otherUser,
-                              callType: 'video',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildChatOptionCard(
-                      context,
-                      icon: Icons.call_rounded,
-                      title: 'Sesli Görüşme',
-                      subtitle: 'Sesli görüşme başlat',
-                      color: const Color(0xFF10B981),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => VideoCallScreen(
-                              otherUser: widget.otherUser,
-                              callType: 'audio',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildChatOptionCard(
-                      context,
-                      icon: Icons.folder_shared_rounded,
-                      title: 'Dosya Paylaşımı',
-                      subtitle: 'Dosya paylaş',
-                      color: const Color(0xFFF59E0B),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => FileSharingScreen(
-                              otherUser: widget.otherUser,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildChatOptionCard(
-                      context,
-                      icon: Icons.assignment_rounded,
-                      title: 'Ödevler',
-                      subtitle: 'Ödevleri görüntüle',
-                      color: const Color(0xFF8B5CF6),
-                      onTap: () {
-                        Navigator.pop(context);
-                        // TODO: Get actual user role from AuthBloc
-                        final isTeacher = true; // This should come from actual user data
-                        
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AssignmentScreen(
-                              otherUser: widget.otherUser,
-                              isTeacher: isTeacher,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
+              );
+            },
           ),
-        ),
+          ListTile(
+            leading: const Icon(Icons.block),
+            title: const Text('Kullanıcıyı Engelle'),
+            onTap: () {
+              Navigator.pop(context);
+              _blockUser();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.report),
+            title: const Text('Şikayet Et'),
+            onTap: () {
+              Navigator.pop(context);
+              _reportUser();
+            },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildChatOptionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.1),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[900],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+  void _blockUser() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kullanıcıyı Engelle'),
+        content: Text('${widget.otherUser.name} kullanıcısını engellemek istediğinizden emin misiniz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement block user API call
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Kullanıcı engellendi'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Engelle', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
 
-  void _handleMenuSelection(String value) {
-    switch (value) {
-      case 'video_call':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VideoCallScreen(
-              otherUser: widget.otherUser,
-              callType: 'video',
-            ),
+  void _reportUser() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kullanıcıyı Şikayet Et'),
+        content: const Text('Bu kullanıcıyı şikayet etmek için bir neden seçin:'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
           ),
-        );
-        break;
-      case 'audio_call':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VideoCallScreen(
-              otherUser: widget.otherUser,
-              callType: 'audio',
-            ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement report user API call
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Şikayet gönderildi'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Şikayet Et', style: TextStyle(color: Colors.white)),
           ),
-        );
-        break;
-      case 'file_sharing':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => FileSharingScreen(
-              otherUser: widget.otherUser,
-            ),
-          ),
-        );
-        break;
-      case 'assignments':
-        // Check if user is teacher to determine if they can create assignments
-        // For now, we'll assume the current user can determine their role
-        // TODO: Get actual user role from AuthBloc
-        final isTeacher = true; // This should come from actual user data
-        
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AssignmentScreen(
-              otherUser: widget.otherUser,
-              isTeacher: isTeacher,
-            ),
-          ),
-        );
-        break;
-    }
+        ],
+      ),
+    );
   }
 }

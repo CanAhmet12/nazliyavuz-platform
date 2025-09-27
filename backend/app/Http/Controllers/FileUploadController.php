@@ -3,140 +3,173 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
-use Intervention\Image\Facades\Image;
-use App\Services\FileUploadService;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 class FileUploadController extends Controller
 {
-    protected FileUploadService $fileUploadService;
-
-    public function __construct(FileUploadService $fileUploadService)
+    /**
+     * Upload profile photo
+     */
+    public function uploadProfilePhoto(Request $request): JsonResponse
     {
-        $this->fileUploadService = $fileUploadService;
-    }
-    public function uploadProfilePhoto(Request $request)
-    {
-        $request->validate([
-            'photo' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB
+        $validator = Validator::make($request->all(), [
+            'photo' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB max
         ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => 'Geçersiz dosya formatı',
+                    'details' => $validator->errors()
+                ]
+            ], 422);
+        }
+
         try {
             $user = Auth::user();
+            $file = $request->file('photo');
             
-            // Eski fotoğrafı sil
+            // Delete old profile photo if exists
             if ($user->profile_photo_url) {
-                $this->fileUploadService->deleteFile($this->extractPathFromUrl($user->profile_photo_url));
+                $oldPath = str_replace('/storage/', '', $user->profile_photo_url);
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
             }
-
-            // Yeni fotoğrafı S3'e yükle
-            $result = $this->fileUploadService->uploadProfilePhoto($request->file('photo'), $user->id);
-
-            if (!$result['success']) {
-                return response()->json([
-                    'error' => [
-                        'code' => 'UPLOAD_FAILED',
-                        'message' => $result['error']
-                    ]
-                ], 500);
-            }
-
-            // Kullanıcı profilini güncelle
-            $user->update(['profile_photo_url' => $result['url']]);
-
+            
+            // Generate unique filename
+            $filename = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $filePath = $file->storeAs('profile_photos', $filename, 'public');
+            
+            // Update user profile photo URL
+            $user->update([
+                'profile_photo_url' => Storage::disk('public')->url($filePath)
+            ]);
+            
             return response()->json([
                 'success' => true,
-                'message' => 'Profil fotoğrafı başarıyla yüklendi',
-                'photo_url' => $result['url']
+                'message' => 'Profil fotoğrafı başarıyla güncellendi',
+                'profile_photo_url' => $user->profile_photo_url
             ]);
-
+            
         } catch (\Exception $e) {
+            Log::error('Error uploading profile photo: ' . $e->getMessage());
+            
             return response()->json([
                 'error' => [
-                    'code' => 'UPLOAD_ERROR',
-                    'message' => 'Fotoğraf yüklenirken bir hata oluştu: ' . $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
-
-    public function deleteProfilePhoto()
-    {
-        try {
-            $user = Auth::user();
-
-            if ($user->profile_photo_url) {
-                // S3'ten dosyayı sil
-                $this->fileUploadService->deleteFile($this->extractPathFromUrl($user->profile_photo_url));
-                
-                // Kullanıcı profilini güncelle
-                $user->update(['profile_photo_url' => null]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Profil fotoğrafı başarıyla silindi'
-                ]);
-            }
-
-            return response()->json([
-                'error' => [
-                    'code' => 'NOT_FOUND',
-                    'message' => 'Silinecek bir profil fotoğrafı bulunamadı'
-                ]
-            ], 404);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => [
-                    'code' => 'DELETE_ERROR',
-                    'message' => 'Fotoğraf silinirken bir hata oluştu: ' . $e->getMessage()
+                    'code' => 'PHOTO_UPLOAD_ERROR',
+                    'message' => 'Profil fotoğrafı yüklenirken bir hata oluştu'
                 ]
             ], 500);
         }
     }
 
     /**
-     * Upload document (certificates, diplomas, etc.)
+     * Delete profile photo
      */
-    public function uploadDocument(Request $request)
+    public function deleteProfilePhoto(): JsonResponse
     {
-        $request->validate([
-            'document' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240', // 10MB
-            'type' => 'required|string|in:certificate,diploma,portfolio,other'
-        ]);
-
         try {
             $user = Auth::user();
             
-            $result = $this->fileUploadService->uploadDocument(
-                $request->file('document'),
-                $user->id,
-                $request->type
-            );
-
-            if (!$result['success']) {
-                return response()->json([
-                    'error' => [
-                        'code' => 'UPLOAD_FAILED',
-                        'message' => $result['error']
-                    ]
-                ], 500);
+            if ($user->profile_photo_url) {
+                // Delete file from storage
+                $filePath = str_replace('/storage/', '', $user->profile_photo_url);
+                if (Storage::disk('public')->exists($filePath)) {
+                    Storage::disk('public')->delete($filePath);
+                }
+                
+                // Update user profile photo URL
+                $user->update([
+                    'profile_photo_url' => null
+                ]);
             }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Profil fotoğrafı başarıyla silindi'
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error deleting profile photo: ' . $e->getMessage());
+            
+            return response()->json([
+                'error' => [
+                    'code' => 'PHOTO_DELETE_ERROR',
+                    'message' => 'Profil fotoğrafı silinirken bir hata oluştu'
+                ]
+            ], 500);
+        }
+    }
 
+    /**
+     * Upload document
+     */
+    public function uploadDocument(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'document' => 'required|file|mimes:pdf,doc,docx,txt|max:10240', // 10MB max
+            'type' => 'required|string|in:certificate,diploma,cv,other',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => 'Geçersiz dosya formatı',
+                    'details' => $validator->errors()
+                ]
+            ], 422);
+        }
+
+        try {
+            $user = Auth::user();
+            $file = $request->file('document');
+            
+            // Generate unique filename
+            $filename = 'doc_' . $user->id . '_' . time() . '_' . $file->getClientOriginalName();
+            $filePath = $file->storeAs('documents', $filename, 'public');
+            
+            // Store document info in user's documents field (JSON)
+            $documents = $user->documents ?? [];
+            $documents[] = [
+                'name' => $file->getClientOriginalName(),
+                'file_path' => $filePath,
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+                'type' => $request->type,
+                'description' => $request->description,
+                'uploaded_at' => now()->toISOString(),
+            ];
+            
+            $user->update([
+                'documents' => $documents
+            ]);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Doküman başarıyla yüklendi',
-                'document_url' => $result['url'],
-                'filename' => $result['filename']
+                'document' => [
+                    'name' => $file->getClientOriginalName(),
+                    'type' => $request->type,
+                    'file_size' => $file->getSize(),
+                ]
             ]);
-
+            
         } catch (\Exception $e) {
+            Log::error('Error uploading document: ' . $e->getMessage());
+            
             return response()->json([
                 'error' => [
-                    'code' => 'UPLOAD_ERROR',
-                    'message' => 'Doküman yüklenirken bir hata oluştu: ' . $e->getMessage()
+                    'code' => 'DOCUMENT_UPLOAD_ERROR',
+                    'message' => 'Doküman yüklenirken bir hata oluştu'
                 ]
             ], 500);
         }
@@ -145,55 +178,52 @@ class FileUploadController extends Controller
     /**
      * Generate presigned URL for direct upload
      */
-    public function generatePresignedUrl(Request $request)
+    public function generatePresignedUrl(Request $request): JsonResponse
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'filename' => 'required|string|max:255',
-            'type' => 'required|string|in:profile-photo,document',
-            'expiration_minutes' => 'sometimes|integer|min:1|max:1440' // Max 24 hours
+            'content_type' => 'required|string|max:100',
+            'file_size' => 'required|integer|max:10485760', // 10MB max
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => 'Geçersiz veri',
+                    'details' => $validator->errors()
+                ]
+            ], 422);
+        }
 
         try {
             $user = Auth::user();
-            $expirationMinutes = $request->expiration_minutes ?? 60;
             
-            $filename = $request->type . '_' . $user->id . '_' . time() . '_' . $request->filename;
-            $path = $request->type . '/' . $filename;
-
-            $result = $this->fileUploadService->generatePresignedUrl($filename, $request->type, $user->id);
-
-            if (!$result['success']) {
-                return response()->json([
-                    'error' => [
-                        'code' => 'PRESIGNED_URL_FAILED',
-                        'message' => $result['error']
-                    ]
-                ], 500);
-            }
-
+            // Generate unique filename
+            $extension = pathinfo($request->filename, PATHINFO_EXTENSION);
+            $filename = 'upload_' . $user->id . '_' . time() . '.' . $extension;
+            $filePath = 'uploads/' . $filename;
+            
+            // For now, return a simple upload URL
+            // In production, you would integrate with AWS S3 or similar service
+            $uploadUrl = route('api.v1.upload.direct', ['filename' => $filename]);
+            
             return response()->json([
                 'success' => true,
-                'presigned_url' => $result['presigned_url'],
-                'path' => $path,
-                'expires_in' => $result['expires_in']
+                'upload_url' => $uploadUrl,
+                'filename' => $filename,
+                'expires_in' => 3600, // 1 hour
             ]);
-
+            
         } catch (\Exception $e) {
+            Log::error('Error generating presigned URL: ' . $e->getMessage());
+            
             return response()->json([
                 'error' => [
                     'code' => 'PRESIGNED_URL_ERROR',
-                    'message' => 'Presigned URL oluşturulurken bir hata oluştu: ' . $e->getMessage()
+                    'message' => 'Upload URL oluşturulurken bir hata oluştu'
                 ]
             ], 500);
         }
-    }
-
-    /**
-     * Extract path from S3 URL
-     */
-    private function extractPathFromUrl(string $url): string
-    {
-        $parsedUrl = parse_url($url);
-        return ltrim($parsedUrl['path'] ?? '', '/');
     }
 }

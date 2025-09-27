@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../screens/auth/login_screen.dart';
 import '../theme/app_theme.dart';
+import '../widgets/optimized_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -185,11 +186,12 @@ class _SplashScreenState extends State<SplashScreen>
                                     borderRadius: BorderRadius.circular(60),
                                   ),
                                 ),
-                                // Main icon
-                                Icon(
-                                  Icons.school_rounded,
+                                // Optimized logo with animation
+                                AnimatedOptimizedLogo(
                                   size: 70,
-                                  color: AppTheme.primaryBlue,
+                                  fit: BoxFit.contain,
+                                  enablePulse: true,
+                                  duration: const Duration(milliseconds: 2000),
                                 ),
                                 // Decorative elements
                                 Positioned(
@@ -228,7 +230,7 @@ class _SplashScreenState extends State<SplashScreen>
                   
                   // App Title
                   Text(
-                    'Nazliyavuz Platform',
+                    'Rota Akademi',
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,

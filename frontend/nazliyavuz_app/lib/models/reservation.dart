@@ -10,7 +10,7 @@ class Reservation extends Equatable {
   final int categoryId;
   final String subject;
   final DateTime proposedDatetime;
-  final int durationMinutes;
+  final int? durationMinutes;
   final double price;
   final String status;
   final String? notes;
@@ -28,7 +28,7 @@ class Reservation extends Equatable {
     required this.categoryId,
     required this.subject,
     required this.proposedDatetime,
-    required this.durationMinutes,
+    this.durationMinutes,
     required this.price,
     required this.status,
     this.notes,
@@ -48,7 +48,7 @@ class Reservation extends Equatable {
       categoryId: json['category_id'],
       subject: json['subject'],
       proposedDatetime: DateTime.parse(json['proposed_datetime']),
-      durationMinutes: json['duration_minutes'],
+      durationMinutes: json['duration_minutes'] != null ? int.tryParse(json['duration_minutes'].toString()) : null,
       price: double.tryParse(json['price'].toString()) ?? 0.0,
       status: json['status'],
       notes: json['notes'],
@@ -121,8 +121,10 @@ class Reservation extends Equatable {
   }
 
   String get formattedDuration {
-    final hours = durationMinutes ~/ 60;
-    final minutes = durationMinutes % 60;
+    if (durationMinutes == null) return '60dk';
+    
+    final hours = durationMinutes! ~/ 60;
+    final minutes = durationMinutes! % 60;
     
     if (hours > 0) {
       return minutes > 0 ? '${hours}sa ${minutes}dk' : '${hours}sa';

@@ -5,7 +5,6 @@ import 'admin_dashboard_screen.dart';
 import 'admin_teacher_approval_screen.dart';
 import 'admin_user_management_screen.dart';
 import 'admin_analytics_screen.dart';
-import '../analytics/advanced_analytics_screen.dart';
 
 class AdminLayout extends StatefulWidget {
   final User user;
@@ -16,45 +15,69 @@ class AdminLayout extends StatefulWidget {
   State<AdminLayout> createState() => _AdminLayoutState();
 }
 
-class _AdminLayoutState extends State<AdminLayout> {
+class _AdminLayoutState extends State<AdminLayout>
+    with TickerProviderStateMixin {
   int _currentIndex = 0;
   bool _isSidebarExpanded = true;
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   final List<AdminMenuItem> _menuItems = [
     AdminMenuItem(
       title: 'Dashboard',
-      icon: Icons.dashboard,
-      screen: AdminDashboardScreen(),
-    ),
-    AdminMenuItem(
-      title: 'Öğretmen Onayları',
-      icon: Icons.school,
-      screen: AdminTeacherApprovalScreen(),
+      icon: Icons.dashboard_rounded,
+      screen: const AdminDashboardScreen(),
     ),
     AdminMenuItem(
       title: 'Kullanıcı Yönetimi',
-      icon: Icons.people,
-      screen: AdminUserManagementScreen(),
+      icon: Icons.people_rounded,
+      screen: const AdminUserManagementScreen(),
+    ),
+    AdminMenuItem(
+      title: 'Öğretmen Onayları',
+      icon: Icons.school_rounded,
+      screen: const AdminTeacherApprovalScreen(),
+    ),
+    AdminMenuItem(
+      title: 'Rezervasyonlar',
+      icon: Icons.calendar_today_rounded,
+      screen: const AdminReservationsScreen(),
     ),
     AdminMenuItem(
       title: 'Analitikler',
-      icon: Icons.analytics,
-      screen: AdminAnalyticsScreen(),
+      icon: Icons.analytics_rounded,
+      screen: const AdminAnalyticsScreen(),
     ),
     AdminMenuItem(
-      title: 'Gelişmiş Analitikler',
-      icon: Icons.bar_chart,
-      screen: AdvancedAnalyticsScreen(),
+      title: 'Sistem Ayarları',
+      icon: Icons.settings_rounded,
+      screen: const AdminSettingsScreen(),
     ),
   ];
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutQuart,
+    ));
+    
+    _animationController.forward();
   }
 
   @override
   void dispose() {
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -64,244 +87,332 @@ class _AdminLayoutState extends State<AdminLayout> {
     final isMobile = screenWidth < 768;
     
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Panel'),
-        backgroundColor: AppTheme.premiumGold,
-        foregroundColor: AppTheme.grey900,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {
-            setState(() {
-              _isSidebarExpanded = !_isSidebarExpanded;
-            });
-          },
+      backgroundColor: const Color(0xFFF8FAFB),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Row(
+          children: [
+            // Modern Sidebar
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: isMobile 
+                  ? (_isSidebarExpanded ? screenWidth * 0.7 : 0)
+                  : (_isSidebarExpanded ? 280 : 80),
+              child: _buildModernSidebar(isMobile),
+            ),
+            
+            // Main Content
+            Expanded(
+              child: Column(
+                children: [
+                  // Top Bar
+                  _buildTopBar(isMobile),
+                  
+                  // Content Area
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: _menuItems[_currentIndex].screen,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        actions: [
-          if (!isMobile)
+      ),
+    );
+  }
+
+  Widget _buildModernSidebar(bool isMobile) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryBlue,
+            AppTheme.primaryBlue.withOpacity(0.9),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  if (_isSidebarExpanded) ...[
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      backgroundImage: widget.user.profilePhotoUrl != null
+                          ? NetworkImage(widget.user.profilePhotoUrl!)
+                          : null,
+                      child: widget.user.profilePhotoUrl == null
+                          ? Text(
+                              widget.user.name[0].toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      widget.user.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Yönetici',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      child: Text(
+                        widget.user.name[0].toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            
+            // Menu Items
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _menuItems.length,
+                itemBuilder: (context, index) {
+                  final item = _menuItems[index];
+                  final isSelected = _currentIndex == index;
+                  
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          setState(() {
+                            _currentIndex = index;
+                          });
+                          if (isMobile) {
+                            setState(() {
+                              _isSidebarExpanded = false;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                                ? Colors.white.withOpacity(0.2)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                item.icon,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                              if (_isSidebarExpanded) ...[
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    item.title,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: isSelected 
+                                          ? FontWeight.w700 
+                                          : FontWeight.w500,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Footer
+            if (_isSidebarExpanded)
+              Container(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Divider(color: Colors.white.withOpacity(0.2)),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Rota Akademi',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'v1.0.0',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar(bool isMobile) {
+    return Container(
+      height: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (isMobile || !_isSidebarExpanded)
             IconButton(
-              icon: Icon(_isSidebarExpanded ? Icons.chevron_left : Icons.chevron_right),
               onPressed: () {
                 setState(() {
                   _isSidebarExpanded = !_isSidebarExpanded;
                 });
               },
-            ),
-        ],
-      ),
-      body: Row(
-        children: [
-          // Sidebar
-          Container(
-            width: isMobile 
-                ? (_isSidebarExpanded ? screenWidth * 0.6 : 0)
-                : (_isSidebarExpanded ? 220 : 60),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                right: BorderSide(
-                  color: Theme.of(context).dividerColor,
-                  width: 1,
-                ),
+              icon: Icon(
+                Icons.menu_rounded,
+                color: AppTheme.primaryBlue,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(2, 0),
-                ),
-              ],
             ),
-            child: _isSidebarExpanded || isMobile ? Column(
-              children: [
-                // Header
-                Container(
-                  padding: EdgeInsets.all(_isSidebarExpanded ? 20 : 12),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.premiumGradient,
-                  ),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: _isSidebarExpanded ? 30 : 20,
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          widget.user.name.isNotEmpty 
-                              ? widget.user.name[0].toUpperCase() 
-                              : 'A',
-                          style: TextStyle(
-                            fontSize: _isSidebarExpanded ? 24 : 16,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      if (_isSidebarExpanded) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          widget.user.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Admin',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                
-                // Menu Items
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _menuItems.length,
-                    itemBuilder: (context, index) {
-                      final item = _menuItems[index];
-                      final isSelected = _currentIndex == index;
-                      
-                      return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        child: _isSidebarExpanded 
-                            ? ListTile(
-                                leading: Icon(
-                                  item.icon,
-                                  color: isSelected 
-                                      ? AppTheme.premiumGold
-                                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                                ),
-                                title: Text(
-                                  item.title,
-                                  style: TextStyle(
-                                    color: isSelected 
-                                        ? AppTheme.premiumGold
-                                        : Theme.of(context).colorScheme.onSurface,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                                  ),
-                                ),
-                                selected: isSelected,
-                                selectedTileColor: AppTheme.premiumGoldLight,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                onTap: () {
-                                  setState(() {
-                                    _currentIndex = index;
-                                    if (isMobile) {
-                                      _isSidebarExpanded = false;
-                                    }
-                                  });
-                                  setState(() {
-                                    _currentIndex = index;
-                                  });
-                                },
-                              )
-                            : Tooltip(
-                                message: item.title,
-                                child: Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  child: Material(
-                                    color: isSelected 
-                                        ? AppTheme.premiumGoldLight
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(8),
-                                      onTap: () {
-                                        setState(() {
-                                          _currentIndex = index;
-                                        });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(12),
-                                        child: Icon(
-                                          item.icon,
-                                          color: isSelected 
-                                              ? AppTheme.premiumGold
-                                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                      );
-                    },
-                  ),
-                ),
-                
-                // Footer
-                if (_isSidebarExpanded) Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      ListTile(
-                        leading: const Icon(Icons.settings),
-                        title: const Text('Ayarlar'),
-                        onTap: () {
-                          // Settings functionality
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.logout),
-                        title: const Text('Çıkış'),
-                        onTap: () {
-                          // Logout functionality
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ) : const SizedBox.shrink(),
+          
+          const SizedBox(width: 16),
+          
+          Text(
+            _menuItems[_currentIndex].title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
           ),
           
-          // Main Content
-          Expanded(
-            child: Stack(
-              children: [
-                IndexedStack(
-                  index: _currentIndex,
-                  children: _menuItems.map((item) => item.screen).toList(),
-                ),
-                
-                // Mobile overlay
-                if (isMobile && _isSidebarExpanded)
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isSidebarExpanded = false;
-                        });
-                      },
-                      child: Container(
-                        color: Colors.black.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          const Spacer(),
+          
+          // Quick Actions
+          Row(
+            children: [
+              _buildQuickActionButton(
+                icon: Icons.notifications_rounded,
+                onPressed: () {
+                  // Show notifications
+                },
+              ),
+              const SizedBox(width: 12),
+              _buildQuickActionButton(
+                icon: Icons.search_rounded,
+                onPressed: () {
+                  // Show search
+                },
+              ),
+              const SizedBox(width: 12),
+              _buildQuickActionButton(
+                icon: Icons.settings_rounded,
+                onPressed: () {
+                  // Show settings
+                },
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.primaryBlue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(
+          icon,
+          color: AppTheme.primaryBlue,
+          size: 20,
+        ),
       ),
     );
   }
@@ -317,4 +428,33 @@ class AdminMenuItem {
     required this.icon,
     required this.screen,
   });
+}
+
+// Placeholder screens for admin functionality
+class AdminReservationsScreen extends StatelessWidget {
+  const AdminReservationsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'Admin Rezervasyonlar',
+        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class AdminSettingsScreen extends StatelessWidget {
+  const AdminSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'Admin Sistem Ayarları',
+        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
 }

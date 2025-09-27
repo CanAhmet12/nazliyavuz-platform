@@ -62,7 +62,7 @@ class Teacher extends Equatable {
 
   factory Teacher.fromJson(Map<String, dynamic> json) {
     return Teacher(
-      userId: json['user_id'],
+      userId: json['user_id'] ?? json['id'] ?? 0,
       id: json['id'],
       bio: json['bio'],
       education: json['education'] != null 
@@ -77,7 +77,13 @@ class Teacher extends Equatable {
           : null,
       ratingAvg: _parseDouble(json['rating_avg']) ?? 0.0,
       ratingCount: json['rating_count'] ?? 0,
-      user: json['user'] != null ? User.fromJson(json['user']) : null,
+      user: json['user'] != null ? User.fromJson(json['user']) : 
+            (json['name'] != null ? User.fromJson({
+              'id': json['id'],
+              'name': json['name'],
+              'email': json['email'] ?? '',
+              'profile_photo_url': json['profile_photo_url'],
+            }) : null),
       categories: json['categories'] != null 
           ? (json['categories'] as List)
               .map((category) => Category.fromJson(category))

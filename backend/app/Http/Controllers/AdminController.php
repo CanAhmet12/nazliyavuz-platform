@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Http\Controllers;
 
@@ -17,7 +17,7 @@ use App\Services\CacheService;
 /**
  * @OA\Tag(
  *     name="Admin",
- *     description="Admin paneli ve moderasyon i┼şlemleri"
+ *     description="Admin paneli ve moderasyon işlemleri"
  * )
  */
 class AdminController extends Controller
@@ -28,16 +28,17 @@ class AdminController extends Controller
     {
         // Cache service temporarily disabled for deployment
     }
+
     /**
      * @OA\Get(
      *     path="/admin/dashboard",
      *     tags={"Admin"},
      *     summary="Admin dashboard istatistikleri",
-     *     description="Admin paneli i├ğin genel istatistikleri getirir",
+     *     description="Admin paneli için genel istatistikleri getirir",
      *     security={{"bearerAuth":{}}},
      *     @OA\Response(
      *         response=200,
-     *         description="Dashboard verileri ba┼şar─▒yla getirildi",
+     *         description="Dashboard verileri başarıyla getirildi",
      *         @OA\JsonContent(
      *             @OA\Property(property="stats", type="object"),
      *             @OA\Property(property="recent_activities", type="array", @OA\Items(type="object"))
@@ -47,7 +48,7 @@ class AdminController extends Controller
      */
     public function dashboard(): JsonResponse
     {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
+        // Admin yetkisi zaten middleware tarafından kontrol ediliyor
 
         $stats = [
             'total_users' => User::count(),
@@ -57,7 +58,7 @@ class AdminController extends Controller
             'pending_reservations' => Reservation::where('status', 'pending')->count(),
             'completed_reservations' => Reservation::where('status', 'completed')->count(),
             'total_categories' => Category::count(),
-            'active_users_this_month' => User::whereMonth('created_at', now()->month)->count(),
+            'active_categories' => Category::where('is_active', true)->count(),
         ];
 
         $recentActivities = AuditLog::with('user')
@@ -66,6 +67,7 @@ class AdminController extends Controller
             ->get();
 
         return response()->json([
+            'success' => true,
             'stats' => $stats,
             'recent_activities' => $recentActivities,
         ]);
@@ -73,77 +75,29 @@ class AdminController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/admin/users",
+     *     path="/admin/analytics",
      *     tags={"Admin"},
-     *     summary="Kullan─▒c─▒ listesi",
-     *     description="T├╝m kullan─▒c─▒lar─▒ listeler ve filtreler",
+     *     summary="Detaylı analitik veriler",
+     *     description="Admin paneli için detaylı analitik verileri getirir",
      *     security={{"bearerAuth":{}}},
-     *     @OA\Parameter(
-     *         name="role",
-     *         in="query",
-     *         description="Kullan─▒c─▒ rol├╝ filtresi",
-     *         @OA\Schema(type="string", enum={"student","teacher","admin"})
-     *     ),
-     *     @OA\Parameter(
-     *         name="status",
-     *         in="query",
-     *         description="Kullan─▒c─▒ durumu filtresi",
-     *         @OA\Schema(type="string", enum={"active","inactive","pending"})
-     *     ),
-     *     @OA\Parameter(
-     *         name="page",
-     *         in="query",
-     *         description="Sayfa numaras─▒",
-     *         @OA\Schema(type="integer", default=1)
-     *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Kullan─▒c─▒lar ba┼şar─▒yla getirildi",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="data", type="array", @OA\Items(type="object")),
-     *             @OA\Property(property="meta", type="object")
-     *         )
+     *         description="Analitik veriler başarıyla getirildi"
      *     )
      * )
      */
-    public function getUsers(Request $request): JsonResponse
+    public function getAnalytics(): JsonResponse
     {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $query = User::query();
-
-        // Rol filtresi
-        if ($request->has('role')) {
-            $query->where('role', $request->role);
-        }
-
-        // Durum filtresi
-        if ($request->has('status')) {
-            switch ($request->status) {
-                case 'active':
-                    $query->whereNotNull('email_verified_at');
-                    break;
-                case 'inactive':
-                    $query->whereNull('email_verified_at');
-                    break;
-                case 'pending':
-                    $query->whereNull('verified_at');
-                    break;
-            }
-        }
-
-        $users = $query->with(['teacher'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $analytics = [
+            'user_growth' => $this->getUserGrowthData(),
+            'reservation_trends' => $this->getReservationTrends(),
+            'category_popularity' => $this->getCategoryPopularity(),
+            'teacher_performance' => $this->getTeacherPerformance(),
+        ];
 
         return response()->json([
-            'data' => $users->items(),
-            'meta' => [
-                'current_page' => $users->currentPage(),
-                'last_page' => $users->lastPage(),
-                'per_page' => $users->perPage(),
-                'total' => $users->total(),
-            ]
+            'success' => true,
+            'analytics' => $analytics,
         ]);
     }
 
@@ -151,70 +105,75 @@ class AdminController extends Controller
      * @OA\Put(
      *     path="/admin/users/{user}/status",
      *     tags={"Admin"},
-     *     summary="Kullan─▒c─▒ durumu g├╝ncelle",
-     *     description="Kullan─▒c─▒n─▒n durumunu g├╝nceller (aktif/pasif)",
+     *     summary="Kullanıcı durumunu güncelle",
+     *     description="Kullanıcının aktif/pasif durumunu günceller",
      *     security={{"bearerAuth":{}}},
      *     @OA\Parameter(
      *         name="user",
      *         in="path",
      *         required=true,
-     *         description="Kullan─▒c─▒ ID",
      *         @OA\Schema(type="integer")
      *     ),
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"status"},
-     *             @OA\Property(property="status", type="string", enum={"active","inactive","suspended"}, example="active")
+     *             @OA\Property(property="status", type="string", enum={"active", "suspended"}),
+     *             @OA\Property(property="reason", type="string")
      *         )
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Kullan─▒c─▒ durumu ba┼şar─▒yla g├╝ncellendi",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Kullan─▒c─▒ durumu g├╝ncellendi"),
-     *             @OA\Property(property="user", type="object")
-     *         )
+     *         description="Kullanıcı durumu başarıyla güncellendi"
      *     )
      * )
      */
     public function updateUserStatus(Request $request, User $user): JsonResponse
     {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $request->validate([
-            'status' => 'required|in:active,inactive,suspended',
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:active,suspended',
+            'reason' => 'nullable|string|max:500',
         ]);
 
-        $oldStatus = $user->verified_at ? 'active' : 'inactive';
-
-        switch ($request->status) {
-            case 'active':
-                $user->update(['verified_at' => now()]);
-                break;
-            case 'inactive':
-                $user->update(['verified_at' => null]);
-                break;
-            case 'suspended':
-                $user->update(['verified_at' => null]);
-                // ─░leride suspended_at field'─▒ eklenebilir
-                break;
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $validator->errors()
+                ]
+            ], 400);
         }
 
-        // Audit log
+        $status = $request->status;
+        $reason = $request->reason;
+
+        if ($status === 'suspended') {
+            $user->update([
+                'suspended_at' => now(),
+                'suspension_reason' => $reason,
+            ]);
+        } else {
+            $user->update([
+                'suspended_at' => null,
+                'suspended_until' => null,
+                'suspension_reason' => null,
+            ]);
+        }
+
+        // Log the action
         AuditLog::create([
             'user_id' => Auth::id(),
-            'action' => 'update_user_status',
-            'target_type' => 'User',
-            'target_id' => $user->id,
-            'meta' => [
-                'old_status' => $oldStatus,
-                'new_status' => $request->status,
+            'action' => 'user_status_updated',
+            'description' => "User {$user->name} status updated to {$status}",
+            'metadata' => [
+                'target_user_id' => $user->id,
+                'status' => $status,
+                'reason' => $reason,
             ],
         ]);
 
         return response()->json([
-            'message' => 'Kullan─▒c─▒ durumu g├╝ncellendi',
+            'success' => true,
+            'message' => 'Kullanıcı durumu başarıyla güncellendi',
             'user' => $user->fresh(),
         ]);
     }
@@ -223,44 +182,45 @@ class AdminController extends Controller
      * @OA\Get(
      *     path="/admin/reservations",
      *     tags={"Admin"},
-     *     summary="Rezervasyon listesi",
-     *     description="T├╝m rezervasyonlar─▒ listeler ve filtreler",
+     *     summary="Tüm rezervasyonları listele",
+     *     description="Admin paneli için tüm rezervasyonları getirir",
      *     security={{"bearerAuth":{}}},
      *     @OA\Parameter(
      *         name="status",
      *         in="query",
-     *         description="Rezervasyon durumu filtresi",
-     *         @OA\Schema(type="string", enum={"pending","accepted","rejected","cancelled","completed"})
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         @OA\Schema(type="integer")
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Rezervasyonlar ba┼şar─▒yla getirildi",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="data", type="array", @OA\Items(type="object"))
-     *         )
+     *         description="Rezervasyonlar başarıyla getirildi"
      *     )
      * )
      */
     public function getReservations(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
         $query = Reservation::with(['student', 'teacher.user', 'category']);
 
-        if ($request->has('status')) {
+        if ($request->has('status') && $request->status) {
             $query->where('status', $request->status);
         }
 
-        $reservations = $query->orderBy('created_at', 'desc')->paginate(20);
+        $reservations = $query->orderBy('created_at', 'desc')
+            ->paginate($request->get('per_page', 20));
 
         return response()->json([
-            'data' => $reservations->items(),
-            'meta' => [
+            'success' => true,
+            'reservations' => $reservations->items(),
+            'pagination' => [
                 'current_page' => $reservations->currentPage(),
                 'last_page' => $reservations->lastPage(),
                 'per_page' => $reservations->perPage(),
                 'total' => $reservations->total(),
-            ]
+            ],
         ]);
     }
 
@@ -268,29 +228,24 @@ class AdminController extends Controller
      * @OA\Get(
      *     path="/admin/categories",
      *     tags={"Admin"},
-     *     summary="Kategori y├Ânetimi",
-     *     description="Kategorileri listeler ve y├Ânetir",
+     *     summary="Kategorileri listele",
+     *     description="Admin paneli için kategorileri getirir",
      *     security={{"bearerAuth":{}}},
      *     @OA\Response(
      *         response=200,
-     *         description="Kategoriler ba┼şar─▒yla getirildi",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="data", type="array", @OA\Items(type="object"))
-     *         )
+     *         description="Kategoriler başarıyla getirildi"
      *     )
      * )
      */
     public function getCategories(): JsonResponse
     {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
         $categories = Category::with('children')
-            ->whereNull('parent_id')
             ->orderBy('sort_order')
             ->get();
 
         return response()->json([
-            'data' => $categories,
+            'success' => true,
+            'categories' => $categories,
         ]);
     }
 
@@ -298,57 +253,67 @@ class AdminController extends Controller
      * @OA\Post(
      *     path="/admin/categories",
      *     tags={"Admin"},
-     *     summary="Yeni kategori olu┼ştur",
-     *     description="Yeni kategori olu┼şturur",
+     *     summary="Yeni kategori oluştur",
+     *     description="Admin paneli için yeni kategori oluşturur",
      *     security={{"bearerAuth":{}}},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"name","slug"},
-     *             @OA\Property(property="name", type="string", example="Matematik"),
-     *             @OA\Property(property="slug", type="string", example="matematik"),
-     *             @OA\Property(property="description", type="string", example="Matematik dersleri"),
-     *             @OA\Property(property="parent_id", type="integer", example=null),
-     *             @OA\Property(property="icon", type="string", example="calculator"),
-     *             @OA\Property(property="sort_order", type="integer", example=1)
+     *             @OA\Property(property="name", type="string"),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="parent_id", type="integer"),
+     *             @OA\Property(property="icon", type="string"),
+     *             @OA\Property(property="sort_order", type="integer")
      *         )
      *     ),
      *     @OA\Response(
      *         response=201,
-     *         description="Kategori ba┼şar─▒yla olu┼şturuldu",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Kategori olu┼şturuldu"),
-     *             @OA\Property(property="category", type="object")
-     *         )
+     *         description="Kategori başarıyla oluşturuldu"
      *     )
      * )
      */
     public function createCategory(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:categories',
             'description' => 'nullable|string',
             'parent_id' => 'nullable|exists:categories,id',
             'icon' => 'nullable|string|max:255',
-            'sort_order' => 'nullable|integer',
+            'sort_order' => 'nullable|integer|min:0',
         ]);
 
-        $category = Category::create($request->all());
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $validator->errors()
+                ]
+            ], 400);
+        }
 
-        // Audit log
+        $category = Category::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'parent_id' => $request->parent_id,
+            'icon' => $request->icon,
+            'sort_order' => $request->sort_order ?? 0,
+            'slug' => \Str::slug($request->name),
+        ]);
+
+        // Log the action
         AuditLog::create([
             'user_id' => Auth::id(),
-            'action' => 'create_category',
-            'target_type' => 'Category',
-            'target_id' => $category->id,
-            'meta' => $request->all(),
+            'action' => 'category_created',
+            'description' => "Category '{$category->name}' created",
+            'metadata' => [
+                'category_id' => $category->id,
+                'category_name' => $category->name,
+            ],
         ]);
 
         return response()->json([
-            'message' => 'Kategori olu┼şturuldu',
+            'success' => true,
+            'message' => 'Kategori başarıyla oluşturuldu',
             'category' => $category,
         ], 201);
     }
@@ -357,965 +322,389 @@ class AdminController extends Controller
      * @OA\Get(
      *     path="/admin/audit-logs",
      *     tags={"Admin"},
-     *     summary="Audit log listesi",
-     *     description="Sistem aktivitelerini listeler",
+     *     summary="Audit loglarını listele",
+     *     description="Admin paneli için audit loglarını getirir",
      *     security={{"bearerAuth":{}}},
      *     @OA\Parameter(
      *         name="action",
      *         in="query",
-     *         description="Aksiyon filtresi",
      *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="user_id",
+     *         in="query",
+     *         @OA\Schema(type="integer")
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Audit loglar ba┼şar─▒yla getirildi",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="data", type="array", @OA\Items(type="object"))
-     *         )
+     *         description="Audit logları başarıyla getirildi"
      *     )
      * )
      */
     public function getAuditLogs(Request $request): JsonResponse
     {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
         $query = AuditLog::with('user');
 
-        if ($request->has('action')) {
+        if ($request->has('action') && $request->action) {
             $query->where('action', $request->action);
         }
 
-        $logs = $query->orderBy('created_at', 'desc')->paginate(50);
+        if ($request->has('user_id') && $request->user_id) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        $logs = $query->orderBy('created_at', 'desc')
+            ->paginate($request->get('per_page', 20));
 
         return response()->json([
-            'data' => $logs->items(),
-            'meta' => [
+            'success' => true,
+            'logs' => $logs->items(),
+            'pagination' => [
                 'current_page' => $logs->currentPage(),
                 'last_page' => $logs->lastPage(),
                 'per_page' => $logs->perPage(),
                 'total' => $logs->total(),
-            ]
-        ]);
-    }
-
-    /**
-     * Get platform analytics
-     */
-    public function getAnalytics(Request $request): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $period = $request->get('period', 30); // days
-        $startDate = now()->subDays($period);
-
-        // Basit analytics verileri
-        $analytics = [
-            'user_registrations' => User::where('created_at', '>=', $startDate)->count(),
-            'reservation_trends' => Reservation::where('created_at', '>=', $startDate)->count(),
-            'revenue_analytics' => Reservation::where('created_at', '>=', $startDate)->where('status', 'completed')->sum('price'),
-            'teacher_performance' => Teacher::count(),
-            'category_popularity' => Category::count(),
-            'user_activity' => [
-                'active_users' => User::where('last_login_at', '>=', $startDate)->count(),
-                'new_users' => User::where('created_at', '>=', $startDate)->count(),
-                'verified_users' => User::whereNotNull('email_verified_at')->count(),
-            ],
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $analytics,
-            'cached' => false
-        ]);
-    }
-
-    /**
-     * Get pending teachers for approval
-     */
-    public function getPendingTeachers(Request $request): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $query = User::where('role', 'teacher')
-            ->where('teacher_status', 'pending')
-            ->with(['teacher.categories']);
-
-        $teachers = $query->orderBy('created_at', 'desc')
-            ->paginate(20);
-
-        return response()->json([
-            'data' => $teachers->items(),
-            'meta' => [
-                'current_page' => $teachers->currentPage(),
-                'last_page' => $teachers->lastPage(),
-                'per_page' => $teachers->perPage(),
-                'total' => $teachers->total(),
-            ]
-        ]);
-    }
-
-    /**
-     * Approve teacher
-     */
-    public function approveTeacher(Request $request, User $user): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        if ($user->role !== 'teacher') {
-            return response()->json([
-                'error' => [
-                    'code' => 'INVALID_USER',
-                    'message' => 'Bu kullan─▒c─▒ ├Â─şretmen de─şil'
-                ]
-            ], 400);
-        }
-
-        if ($user->teacher_status !== 'pending') {
-            return response()->json([
-                'error' => [
-                    'code' => 'INVALID_STATUS',
-                    'message' => 'Bu ├Â─şretmen zaten i┼şleme al─▒nm─▒┼ş'
-                ]
-            ], 400);
-        }
-
-        $adminId = auth()->id();
-        $notes = $request->get('admin_notes');
-
-        $user->approveTeacher($adminId, $notes);
-
-        // Bildirim g├Ânder
-        $user->notifications()->create([
-            'type' => 'teacher_approved',
-            'title' => '├û─şretmen Profiliniz Onayland─▒',
-            'message' => 'Tebrikler! ├û─şretmen profiliniz admin taraf─▒ndan onayland─▒. Art─▒k ├Â─şrenciler sizi bulabilir.',
-            'data' => [
-                'teacher_id' => $user->id,
-                'approved_at' => now()->toISOString(),
-            ]
-        ]);
-
-        return response()->json([
-            'message' => '├û─şretmen ba┼şar─▒yla onayland─▒',
-            'teacher' => $user->load('teacher')
-        ]);
-    }
-
-    /**
-     * Reject teacher
-     */
-    public function rejectTeacher(Request $request, User $user): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        if ($user->role !== 'teacher') {
-            return response()->json([
-                'error' => [
-                    'code' => 'INVALID_USER',
-                    'message' => 'Bu kullan─▒c─▒ ├Â─şretmen de─şil'
-                ]
-            ], 400);
-        }
-
-        if ($user->teacher_status !== 'pending') {
-            return response()->json([
-                'error' => [
-                    'code' => 'INVALID_STATUS',
-                    'message' => 'Bu ├Â─şretmen zaten i┼şleme al─▒nm─▒┼ş'
-                ]
-            ], 400);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'rejection_reason' => 'required|string|max:1000',
-            'admin_notes' => 'sometimes|string|max:1000',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
-                ]
-            ], 400);
-        }
-
-        $adminId = auth()->id();
-        $reason = $request->get('rejection_reason');
-        $notes = $request->get('admin_notes');
-
-        $user->rejectTeacher($adminId, $reason, $notes);
-
-        // Bildirim g├Ânder
-        $user->notifications()->create([
-            'type' => 'teacher_rejected',
-            'title' => '├û─şretmen Profili Reddedildi',
-            'message' => 'Maalesef ├Â─şretmen profiliniz reddedildi. Detaylar i├ğin profil sayfan─▒z─▒ kontrol edin.',
-            'data' => [
-                'teacher_id' => $user->id,
-                'rejection_reason' => $reason,
-                'rejected_at' => now()->toISOString(),
-            ]
-        ]);
-
-        return response()->json([
-            'message' => '├û─şretmen reddedildi',
-            'teacher' => $user->load('teacher')
-        ]);
-    }
-
-    /**
-     * Get user registrations over time
-     */
-    private function getUserRegistrations($startDate)
-    {
-        return User::where('created_at', '>=', $startDate)
-            ->selectRaw('date(created_at) as date, COUNT(*) as count')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-    }
-
-    /**
-     * Get reservation trends
-     */
-    private function getReservationTrends($startDate)
-    {
-        return Reservation::where('created_at', '>=', $startDate)
-            ->selectRaw('date(created_at) as date, COUNT(*) as count, status')
-            ->groupBy('date', 'status')
-            ->orderBy('date')
-            ->get()
-            ->groupBy('status');
-    }
-
-    /**
-     * Get revenue analytics
-     */
-    private function getRevenueAnalytics($startDate)
-    {
-        return Reservation::where('created_at', '>=', $startDate)
-            ->where('status', 'completed')
-            ->selectRaw('date(created_at) as date, SUM(price) as revenue')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-    }
-
-    /**
-     * Get teacher performance metrics
-     */
-    private function getTeacherPerformance()
-    {
-        return Teacher::with(['user', 'reservations'])
-            ->withCount(['reservations as completed_reservations' => function ($query) {
-                $query->where('status', 'completed');
-            }])
-            ->withAvg('ratings', 'rating')
-            ->orderBy('completed_reservations', 'desc')
-            ->limit(10)
-            ->get();
-    }
-
-    /**
-     * Get category popularity
-     */
-    private function getCategoryPopularity()
-    {
-        return Category::withCount(['reservations', 'teachers'])
-            ->orderBy('reservations_count', 'desc')
-            ->get();
-    }
-
-    /**
-     * Get user activity metrics
-     */
-    private function getUserActivity($startDate)
-    {
-        return [
-            'active_users' => User::where('last_login_at', '>=', $startDate)->count(),
-            'new_users' => User::where('created_at', '>=', $startDate)->count(),
-            'verified_users' => User::whereNotNull('email_verified_at')->count(),
-            'unverified_users' => User::whereNull('email_verified_at')->count(),
-        ];
-    }
-
-    /**
-     * Update category
-     */
-    public function updateCategory(Request $request, Category $category): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'slug' => 'sometimes|string|max:255|unique:categories,slug,' . $category->id,
-            'description' => 'nullable|string',
-            'parent_id' => 'nullable|exists:categories,id',
-            'icon' => 'nullable|string|max:255',
-            'sort_order' => 'nullable|integer',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        $category->update($request->all());
-
-        // Audit log
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'update_category',
-            'target_type' => 'Category',
-            'target_id' => $category->id,
-            'meta' => $request->all(),
-        ]);
-
-        return response()->json([
-            'message' => 'Kategori g├╝ncellendi',
-            'category' => $category,
-        ]);
-    }
-
-    /**
-     * Delete category
-     */
-    public function deleteCategory(Category $category): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        // Check if category has children
-        if ($category->children()->count() > 0) {
-            return response()->json([
-                'error' => [
-                    'code' => 'HAS_CHILDREN',
-                    'message' => 'Bu kategorinin alt kategorileri var, ├Ânce onlar─▒ silin'
-                ]
-            ], 400);
-        }
-
-        // Check if category has teachers
-        if ($category->teachers()->count() > 0) {
-            return response()->json([
-                'error' => [
-                    'code' => 'HAS_TEACHERS',
-                    'message' => 'Bu kategoride ├Â─şretmenler var, ├Ânce onlar─▒ ta┼ş─▒y─▒n'
-                ]
-            ], 400);
-        }
-
-        $category->delete();
-
-        // Audit log
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'delete_category',
-            'target_type' => 'Category',
-            'target_id' => $category->id,
-            'meta' => $category->toArray(),
-        ]);
-
-        return response()->json([
-            'message' => 'Kategori silindi'
-        ]);
-    }
-
-    /**
-     * Update reservation status
-     */
-    public function updateReservation(Request $request, Reservation $reservation): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $request->validate([
-            'status' => 'required|in:pending,accepted,rejected,cancelled,completed',
-            'admin_notes' => 'nullable|string|max:1000',
-        ]);
-
-        $oldStatus = $reservation->status;
-        $reservation->update([
-            'status' => $request->status,
-            'admin_notes' => $request->admin_notes,
-        ]);
-
-        // Audit log
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'update_reservation',
-            'target_type' => 'Reservation',
-            'target_id' => $reservation->id,
-            'meta' => [
-                'old_status' => $oldStatus,
-                'new_status' => $request->status,
-                'admin_notes' => $request->admin_notes,
-            ],
-        ]);
-
-        return response()->json([
-            'message' => 'Rezervasyon g├╝ncellendi',
-            'reservation' => $reservation,
-        ]);
-    }
-
-    /**
-     * Delete reservation
-     */
-    public function deleteReservation(Reservation $reservation): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $reservation->delete();
-
-        // Audit log
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'delete_reservation',
-            'target_type' => 'Reservation',
-            'target_id' => $reservation->id,
-            'meta' => $reservation->toArray(),
-        ]);
-
-        return response()->json([
-            'message' => 'Rezervasyon silindi'
-        ]);
-    }
-
-    /**
-     * Delete user
-     */
-    public function deleteUser(User $user): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        // Prevent admin from deleting themselves
-        if ($user->id === Auth::id()) {
-            return response()->json([
-                'error' => [
-                    'code' => 'CANNOT_DELETE_SELF',
-                    'message' => 'Kendi hesab─▒n─▒z─▒ silemezsiniz'
-                ]
-            ], 400);
-        }
-
-        $user->delete();
-
-        // Audit log
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'delete_user',
-            'target_type' => 'User',
-            'target_id' => $user->id,
-            'meta' => $user->toArray(),
-        ]);
-
-        return response()->json([
-            'message' => 'Kullan─▒c─▒ silindi'
-        ]);
-    }
-
-    /**
-     * Suspend user
-     */
-    public function suspendUser(Request $request, User $user): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $request->validate([
-            'reason' => 'required|string|max:500',
-            'duration' => 'nullable|integer|min:1|max:365', // days
-        ]);
-
-        $suspendedUntil = $request->duration 
-            ? now()->addDays($request->duration) 
-            : null;
-
-        $user->update([
-            'verified_at' => null,
-            'suspended_at' => now(),
-            'suspended_until' => $suspendedUntil,
-            'suspension_reason' => $request->reason,
-        ]);
-
-        // Audit log
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'suspend_user',
-            'target_type' => 'User',
-            'target_id' => $user->id,
-            'meta' => [
-                'reason' => $request->reason,
-                'duration' => $request->duration,
-                'suspended_until' => $suspendedUntil,
-            ],
-        ]);
-
-        return response()->json([
-            'message' => 'Kullan─▒c─▒ ask─▒ya al─▒nd─▒',
-            'user' => $user,
-        ]);
-    }
-
-    /**
-     * Unsuspend user
-     */
-    public function unsuspendUser(User $user): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $user->update([
-            'verified_at' => now(),
-            'suspended_at' => null,
-            'suspended_until' => null,
-            'suspension_reason' => null,
-        ]);
-
-        // Audit log
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'unsuspend_user',
-            'target_type' => 'User',
-            'target_id' => $user->id,
-            'meta' => $user->toArray(),
-        ]);
-
-        return response()->json([
-            'message' => 'Kullan─▒c─▒ ask─▒dan ├ğ─▒kar─▒ld─▒',
-            'user' => $user,
-        ]);
-    }
-
-    /**
-     * Get system health
-     */
-    public function getSystemHealth(): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $health = [
-            'database' => $this->checkDatabaseHealth(),
-            'cache' => $this->checkCacheHealth(),
-            'storage' => $this->checkStorageHealth(),
-            'queue' => $this->checkQueueHealth(),
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $health,
-        ]);
-    }
-
-    /**
-     * Check database health
-     */
-    private function checkDatabaseHealth(): array
-    {
-        try {
-            \DB::connection()->getPdo();
-            return ['status' => 'healthy', 'message' => 'Database connection successful'];
-        } catch (\Exception $e) {
-            return ['status' => 'unhealthy', 'message' => $e->getMessage()];
-        }
-    }
-
-    /**
-     * Check cache health
-     */
-    private function checkCacheHealth(): array
-    {
-        try {
-            \Cache::put('health_check', 'ok', 60);
-            $value = \Cache::get('health_check');
-            return ['status' => 'healthy', 'message' => 'Cache working properly'];
-        } catch (\Exception $e) {
-            return ['status' => 'unhealthy', 'message' => $e->getMessage()];
-        }
-    }
-
-    /**
-     * Check storage health
-     */
-    private function checkStorageHealth(): array
-    {
-        try {
-            \Storage::disk('s3')->exists('health_check.txt');
-            return ['status' => 'healthy', 'message' => 'Storage accessible'];
-        } catch (\Exception $e) {
-            return ['status' => 'unhealthy', 'message' => $e->getMessage()];
-        }
-    }
-
-    /**
-     * Check queue health
-     */
-    private function checkQueueHealth(): array
-    {
-        try {
-            // Simple queue health check
-            return ['status' => 'healthy', 'message' => 'Queue system operational'];
-        } catch (\Exception $e) {
-            return ['status' => 'unhealthy', 'message' => $e->getMessage()];
-        }
-    }
-
-    /**
-     * Get system logs
-     */
-    public function getSystemLogs(Request $request): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $request->validate([
-            'level' => 'sometimes|in:emergency,alert,critical,error,warning,notice,info,debug',
-            'date_from' => 'sometimes|date',
-            'date_to' => 'sometimes|date|after:date_from',
-            'page' => 'sometimes|integer|min:1',
-        ]);
-
-        // This would typically read from log files or a logging service
-        // For now, we'll return a mock response
-        $logs = [
-            [
-                'timestamp' => now()->subMinutes(5)->toISOString(),
-                'level' => 'info',
-                'message' => 'User login successful',
-                'context' => ['user_id' => 1, 'ip' => '192.168.1.1'],
-            ],
-            [
-                'timestamp' => now()->subMinutes(10)->toISOString(),
-                'level' => 'warning',
-                'message' => 'Failed login attempt',
-                'context' => ['email' => 'test@example.com', 'ip' => '192.168.1.2'],
-            ],
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $logs,
-        ]);
-    }
-
-    /**
-     * Clear system cache
-     */
-    public function clearCache(): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        try {
-            \Cache::flush();
-            \Artisan::call('config:clear');
-            \Artisan::call('route:clear');
-            \Artisan::call('view:clear');
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Cache ba┼şar─▒yla temizlendi',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cache temizlenirken hata olu┼ştu: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Get backup status
-     */
-    public function getBackupStatus(): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        // This would typically check backup service status
-        $backupStatus = [
-            'last_backup' => now()->subHours(2)->toISOString(),
-            'next_backup' => now()->addHours(22)->toISOString(),
-            'backup_size' => '2.5 GB',
-            'status' => 'healthy',
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $backupStatus,
-        ]);
-    }
-
-    /**
-     * Send system notification
-     */
-    public function sendSystemNotification(Request $request): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'message' => 'required|string|max:1000',
-            'type' => 'required|in:info,warning,error,success',
-            'target_users' => 'sometimes|array',
-            'target_users.*' => 'exists:users,id',
-            'send_to_all' => 'sometimes|boolean',
-        ]);
-
-        $notificationData = [
-            'title' => $request->title,
-            'message' => $request->message,
-            'type' => $request->type,
-            'sent_at' => now()->toISOString(),
-        ];
-
-        if ($request->boolean('send_to_all')) {
-            // Send to all users
-            $users = User::whereNotNull('fcm_tokens')->get();
-        } else {
-            // Send to specific users
-            $users = User::whereIn('id', $request->target_users)
-                ->whereNotNull('fcm_tokens')
-                ->get();
-        }
-
-        // Here you would typically send push notifications
-        // For now, we'll just log the notification
-        \Log::info('System notification sent', [
-            'notification' => $notificationData,
-            'recipients' => $users->count(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Sistem bildirimi g├Ânderildi',
-            'data' => [
-                'recipients' => $users->count(),
-                'notification' => $notificationData,
             ],
         ]);
     }
 
-    /**
-     * Get user statistics
-     */
-    public function getUserStatistics(): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $stats = [
-            'total_users' => User::count(),
-            'active_users' => User::where('verified_at', '!=', null)->count(),
-            'suspended_users' => User::whereNotNull('suspended_at')->count(),
-            'new_users_today' => User::whereDate('created_at', today())->count(),
-            'new_users_this_week' => User::where('created_at', '>=', now()->subWeek())->count(),
-            'new_users_this_month' => User::where('created_at', '>=', now()->subMonth())->count(),
-            'users_by_role' => User::selectRaw('role, COUNT(*) as count')
-                ->groupBy('role')
-                ->get()
-                ->pluck('count', 'role'),
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $stats,
-        ]);
-    }
-
-    /**
-     * Export user data
-     */
-    public function exportUsers(Request $request): JsonResponse
-    {
-        // Admin yetkisi zaten middleware taraf─▒ndan kontrol ediliyor
-
-        $request->validate([
-            'format' => 'required|in:csv,json,xlsx',
-            'filters' => 'sometimes|array',
-        ]);
-
-        $query = User::query();
-
-        // Apply filters
-        if ($request->has('filters')) {
-            $filters = $request->filters;
-            
-            if (isset($filters['role'])) {
-                $query->where('role', $filters['role']);
-            }
-            
-            if (isset($filters['status'])) {
-                switch ($filters['status']) {
-                    case 'active':
-                        $query->whereNotNull('verified_at')->whereNull('suspended_at');
-                        break;
-                    case 'suspended':
-                        $query->whereNotNull('suspended_at');
-                        break;
-                    case 'inactive':
-                        $query->whereNull('verified_at');
-                        break;
-                }
-            }
-        }
-
-        $users = $query->get();
-
-        // This would typically generate and return a file
-        // For now, we'll return the data directly
-        return response()->json([
-            'success' => true,
-            'message' => 'Kullan─▒c─▒ verileri haz─▒rland─▒',
-            'data' => [
-                'format' => $request->get('format'),
-                'count' => $users->count(),
-                'users' => $users->toArray(),
-            ],
-        ]);
-    }
-
-    /**
-     * Tüm kullanıcıları listele (Yeni Kullanıcı Yönetimi)
-     */
+    // User management methods
     public function listUsers(Request $request): JsonResponse
     {
         $query = User::query();
-        
-        // Sayfalama
-        $perPage = $request->get('per_page', 15);
-        $page = $request->get('page', 1);
-        
-        // Arama
-        if ($request->has('search')) {
-            $search = $request->get('search');
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%");
-            });
+
+        if ($request->has('role') && $request->role) {
+            $query->where('role', $request->role);
         }
-        
-        // Role filtresi
-        if ($request->has('role')) {
-            $query->where('role', $request->get('role'));
+
+        if ($request->has('status') && $request->status) {
+            if ($request->status === 'active') {
+                $query->whereNull('suspended_at');
+            } elseif ($request->status === 'suspended') {
+                $query->whereNotNull('suspended_at');
+            }
         }
-        
+
         $users = $query->orderBy('created_at', 'desc')
-                      ->paginate($perPage);
-        
+            ->paginate($request->get('per_page', 20));
+
         return response()->json([
+            'success' => true,
             'users' => $users->items(),
             'pagination' => [
                 'current_page' => $users->currentPage(),
                 'last_page' => $users->lastPage(),
                 'per_page' => $users->perPage(),
                 'total' => $users->total(),
-            ]
-        ]);
-    }
-    
-    /**
-     * Kullanıcı ara (Yeni Kullanıcı Yönetimi)
-     */
-    public function searchUsers(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|min:1'
-        ]);
-        
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
-                ]
-            ], 400);
-        }
-        
-        $name = $request->get('name');
-        
-        $users = User::where('name', 'LIKE', "%{$name}%")
-                    ->orderBy('created_at', 'desc')
-                    ->get();
-        
-        return response()->json([
-            'users' => $users,
-            'count' => $users->count()
-        ]);
-    }
-    
-    /**
-     * Toplu kullanıcı silme (Yeni Kullanıcı Yönetimi)
-     */
-    public function deleteMultipleUsers(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'user_ids' => 'required|array',
-            'user_ids.*' => 'integer|exists:users,id'
-        ]);
-        
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
-                ]
-            ], 400);
-        }
-        
-        $userIds = $request->get('user_ids');
-        
-        // Admin kendini silemez
-        if (in_array(auth()->id(), $userIds)) {
-            return response()->json([
-                'error' => [
-                    'code' => 'CANNOT_DELETE_SELF',
-                    'message' => 'Kendi hesabınızı silemezsiniz'
-                ]
-            ], 400);
-        }
-        
-        $users = User::whereIn('id', $userIds)->get();
-        $deletedCount = $users->count();
-        
-        User::whereIn('id', $userIds)->delete();
-        
-        return response()->json([
-            'message' => "{$deletedCount} kullanıcı başarıyla silindi"
-        ]);
-    }
-    
-    /**
-     * İsme göre kullanıcıları sil (Yeni Kullanıcı Yönetimi)
-     */
-    public function deleteUsersByName(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|min:1'
-        ]);
-        
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
-                ]
-            ], 400);
-        }
-        
-        $name = $request->get('name');
-        
-        $users = User::where('name', 'LIKE', "%{$name}%")
-                    ->where('id', '!=', auth()->id()) // Admin kendini silemesin
-                    ->get();
-        
-        if ($users->isEmpty()) {
-            return response()->json([
-                'message' => "'{$name}' isimli kullanıcı bulunamadı"
-            ]);
-        }
-        
-        $deletedCount = $users->count();
-        $userNames = $users->pluck('name')->toArray();
-        
-        User::where('name', 'LIKE', "%{$name}%")
-            ->where('id', '!=', auth()->id())
-            ->delete();
-        
-        return response()->json([
-            'message' => "{$deletedCount} kullanıcı silindi",
-            'deleted_users' => $userNames
+            ],
         ]);
     }
 
+    public function searchUsers(Request $request): JsonResponse
+    {
+        $query = $request->get('q', '');
+        
+        if (strlen($query) < 2) {
+            return response()->json([
+                'success' => true,
+                'users' => [],
+            ]);
+        }
+
+        $users = User::where('name', 'like', "%{$query}%")
+            ->orWhere('email', 'like', "%{$query}%")
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'users' => $users,
+        ]);
+    }
+
+    public function deleteUser(int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+        
+        // Prevent admin from deleting themselves
+        if ($user->id === Auth::id()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'FORBIDDEN',
+                    'message' => 'Kendi hesabınızı silemezsiniz'
+                ]
+            ], 403);
+        }
+
+        $userName = $user->name;
+        $user->delete();
+
+        // Log the action
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'user_deleted',
+            'description' => "User '{$userName}' deleted",
+            'metadata' => [
+                'deleted_user_id' => $id,
+                'deleted_user_name' => $userName,
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kullanıcı başarıyla silindi',
+        ]);
+    }
+
+    public function deleteMultipleUsers(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'integer|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $validator->errors()
+                ]
+            ], 400);
+        }
+
+        $userIds = $request->user_ids;
+        $deletedCount = 0;
+
+        foreach ($userIds as $userId) {
+            if ($userId !== Auth::id()) {
+                $user = User::find($userId);
+                if ($user) {
+                    $user->delete();
+                    $deletedCount++;
+                }
+            }
+        }
+
+        // Log the action
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'multiple_users_deleted',
+            'description' => "{$deletedCount} users deleted",
+            'metadata' => [
+                'deleted_user_ids' => $userIds,
+                'deleted_count' => $deletedCount,
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$deletedCount} kullanıcı başarıyla silindi",
+            'deleted_count' => $deletedCount,
+        ]);
+    }
+
+    public function deleteUsersByName(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|min:2',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $validator->errors()
+                ]
+            ], 400);
+        }
+
+        $name = $request->name;
+        $users = User::where('name', 'like', "%{$name}%")->get();
+        $deletedCount = 0;
+
+        foreach ($users as $user) {
+            if ($user->id !== Auth::id()) {
+                $user->delete();
+                $deletedCount++;
+            }
+        }
+
+        // Log the action
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'users_deleted_by_name',
+            'description' => "Users with name '{$name}' deleted",
+            'metadata' => [
+                'search_name' => $name,
+                'deleted_count' => $deletedCount,
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "İsimde '{$name}' geçen {$deletedCount} kullanıcı silindi",
+            'deleted_count' => $deletedCount,
+        ]);
+    }
+
+    // Teacher approval methods
+    public function getPendingTeachers(): JsonResponse
+    {
+        $teachers = User::where('role', 'teacher')
+            ->where('teacher_status', 'pending')
+            ->with('teacher')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'teachers' => $teachers,
+        ]);
+    }
+
+    public function approveTeacher(User $user): JsonResponse
+    {
+        if ($user->role !== 'teacher') {
+            return response()->json([
+                'error' => [
+                    'code' => 'INVALID_USER',
+                    'message' => 'Bu kullanıcı öğretmen değil'
+                ]
+            ], 400);
+        }
+
+        $user->update([
+            'teacher_status' => 'approved',
+            'approved_by' => Auth::id(),
+            'approved_at' => now(),
+        ]);
+
+        // Log the action
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'teacher_approved',
+            'description' => "Teacher '{$user->name}' approved",
+            'metadata' => [
+                'approved_teacher_id' => $user->id,
+                'approved_teacher_name' => $user->name,
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Öğretmen başarıyla onaylandı',
+            'teacher' => $user->fresh(),
+        ]);
+    }
+
+    public function rejectTeacher(Request $request, User $user): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'reason' => 'required|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $validator->errors()
+                ]
+            ], 400);
+        }
+
+        if ($user->role !== 'teacher') {
+            return response()->json([
+                'error' => [
+                    'code' => 'INVALID_USER',
+                    'message' => 'Bu kullanıcı öğretmen değil'
+                ]
+            ], 400);
+        }
+
+        $user->update([
+            'teacher_status' => 'rejected',
+            'rejection_reason' => $request->reason,
+        ]);
+
+        // Log the action
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'teacher_rejected',
+            'description' => "Teacher '{$user->name}' rejected",
+            'metadata' => [
+                'rejected_teacher_id' => $user->id,
+                'rejected_teacher_name' => $user->name,
+                'rejection_reason' => $request->reason,
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Öğretmen başarıyla reddedildi',
+            'teacher' => $user->fresh(),
+        ]);
+    }
+
+    // Helper methods for analytics
+    private function getUserGrowthData(): array
+    {
+        $data = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $count = User::whereYear('created_at', $date->year)
+                ->whereMonth('created_at', $date->month)
+                ->count();
+            $data[] = [
+                'month' => $date->format('Y-m'),
+                'count' => $count,
+            ];
+        }
+        return $data;
+    }
+
+    private function getReservationTrends(): array
+    {
+        $data = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i);
+            $count = Reservation::whereDate('created_at', $date)->count();
+            $data[] = [
+                'date' => $date->format('Y-m-d'),
+                'count' => $count,
+            ];
+        }
+        return $data;
+    }
+
+    private function getCategoryPopularity(): array
+    {
+        return Category::withCount('reservations')
+            ->orderBy('reservations_count', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function ($category) {
+                return [
+                    'name' => $category->name,
+                    'count' => $category->reservations_count,
+                ];
+            })
+            ->toArray();
+    }
+
+    private function getTeacherPerformance(): array
+    {
+        return Teacher::with('user')
+            ->withCount('reservations')
+            ->orderBy('reservations_count', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function ($teacher) {
+                return [
+                    'name' => $teacher->user->name,
+                    'reservations_count' => $teacher->reservations_count,
+                    'average_rating' => $teacher->average_rating,
+                ];
+            })
+            ->toArray();
+    }
 }

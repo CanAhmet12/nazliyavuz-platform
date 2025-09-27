@@ -28,9 +28,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
         _error = null;
       });
 
-      final notifications = await _apiService.getNotifications();
+      final result = await _apiService.getNotifications();
       setState(() {
-        _notifications = notifications;
+        _notifications = (result['data'] as List)
+            .map((json) => app_notification.Notification.fromJson(json))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -203,11 +205,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             color: notification.isUnread 
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.05)
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.05)
                 : null,
             border: notification.isUnread
                 ? Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
                   )
                 : null,
           ),
@@ -220,7 +222,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: _getNotificationColor(notification.type).withValues(alpha: 0.1),
+                    color: _getNotificationColor(notification.type).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Icon(

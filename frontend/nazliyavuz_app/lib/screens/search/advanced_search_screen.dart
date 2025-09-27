@@ -60,7 +60,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
             .map((json) => Category.fromJson(json))
             .toList();
         _languages = List<String>.from(filters['languages']);
-        _popularSearches = popular.map((p) => p['search'] as String).toList();
+        _popularSearches = popular.map((p) => p.toString()).toList();
       });
     } catch (e) {
       if (mounted) {
@@ -86,11 +86,11 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
     try {
       final result = await _apiService.searchTeachers(
         query: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
-        categoryId: _selectedCategory != null ? _getCategoryId(_selectedCategory!) : null,
+        category: _selectedCategory,
         minPrice: _priceMin,
         maxPrice: _priceMax,
-        ratingMin: _ratingMin,
-        onlineOnly: _onlineOnly,
+        rating: _ratingMin,
+        location: _selectedLocation,
         sortBy: _sortBy,
         page: _currentPage,
         perPage: 20,
@@ -222,7 +222,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -325,7 +325,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
         label: Text(label),
         deleteIcon: const Icon(Icons.close, size: 16),
         onDeleted: onRemove,
-        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
         labelStyle: TextStyle(
           color: Theme.of(context).colorScheme.primary,
           fontSize: 12,
@@ -548,17 +548,6 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
     return category.name;
   }
 
-  int? _getCategoryId(String slug) {
-    final category = _categories.firstWhere(
-      (cat) => cat.slug == slug,
-      orElse: () => Category(
-        id: 0,
-        name: slug,
-        slug: slug,
-      ),
-    );
-    return category.id;
-  }
 }
 
 class _FilterBottomSheet extends StatefulWidget {

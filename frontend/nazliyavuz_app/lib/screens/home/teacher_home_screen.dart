@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import '../../main.dart';
 import '../../models/user.dart';
-import '../teachers/enhanced_teachers_screen.dart';
 import '../reservations/enhanced_reservations_screen.dart';
 import '../profile/enhanced_profile_screen.dart';
 import '../notifications/notification_screen.dart';
@@ -12,6 +11,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/custom_widgets.dart';
 import '../chat/chat_list_screen.dart';
 import '../assignments/teacher_assignments_screen.dart';
+import '../students/teacher_students_screen.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
   const TeacherHomeScreen({super.key});
@@ -69,12 +69,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
 
         final user = state.user;
 
+        // Teacher approval kontrolü
+        if (user.isTeacherPending) {
+          return _buildTeacherPendingScreen(user);
+        } else if (user.isTeacherRejected) {
+          return _buildTeacherRejectedScreen(user);
+        }
+
         return Scaffold(
           body: IndexedStack(
             index: _currentIndex,
             children: [
               RepaintBoundary(child: _buildTeacherHomeTab(user)),
-              const RepaintBoundary(child: EnhancedTeachersScreen()),
+              const RepaintBoundary(child: TeacherStudentsScreen()),
               const RepaintBoundary(child: EnhancedLessonsScreen()),
               const RepaintBoundary(child: EnhancedReservationsScreen()),
               const RepaintBoundary(child: EnhancedProfileScreen()),
@@ -114,10 +121,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Expanded(child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Ana Sayfa')),
-              Expanded(child: _buildNavItem(1, Icons.school_outlined, Icons.school, 'Öğretmenler')),
-              const SizedBox(width: 16), // Space for FAB
+              Expanded(child: _buildNavItem(1, Icons.groups_outlined, Icons.groups, 'Öğrenciler')),
+              const SizedBox(width: 12), // Space for FAB
               Expanded(child: _buildNavItem(2, Icons.book_outlined, Icons.book, 'Dersler')),
-              Expanded(child: _buildNavItem(3, Icons.calendar_today_outlined, Icons.calendar_today, 'Derslerim')),
+              Expanded(child: _buildNavItem(3, Icons.calendar_today_outlined, Icons.calendar_today, 'Randevular')),
               Expanded(child: _buildNavItem(4, Icons.person_outlined, Icons.person, 'Profil')),
             ],
           ),
@@ -146,15 +153,15 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 isSelected ? activeIcon : icon,
                 color: isSelected ? Colors.white : AppTheme.grey500,
-                size: 18,
+                size: 16,
               ),
             ),
             const SizedBox(height: 2),
@@ -162,9 +169,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
               label,
               style: TextStyle(
                 color: isSelected ? AppTheme.primaryBlue : AppTheme.grey500,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -196,6 +205,189 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTeacherPendingScreen(User user) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text('Öğretmen Onayı'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentOrange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(60),
+                ),
+                child: Icon(
+                  Icons.schedule_rounded,
+                  size: 60,
+                  color: AppTheme.accentOrange,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Onay Bekliyor',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.grey900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Öğretmen başvurunuz admin tarafından inceleniyor. Onay süreci genellikle 1-3 iş günü sürmektedir.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppTheme.grey600,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentOrange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.accentOrange.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppTheme.accentOrange,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Onay durumunuz hakkında bilgi almak için admin ile iletişime geçebilirsiniz.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.accentOrange,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  // Logout
+                  BlocProvider.of<AuthBloc>(context).add(const AuthLogoutRequested());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                ),
+                child: const Text('Çıkış Yap'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeacherRejectedScreen(User user) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text('Başvuru Reddedildi'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentRed.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(60),
+                ),
+                child: Icon(
+                  Icons.cancel_rounded,
+                  size: 60,
+                  color: AppTheme.accentRed,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Başvuru Reddedildi',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.grey900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Öğretmen başvurunuz maalesef reddedilmiştir. Red sebebi:',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppTheme.grey600,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              if (user.rejectionReason != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentRed.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.accentRed.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Text(
+                    user.rejectionReason!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.accentRed,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+              ElevatedButton(
+                onPressed: () {
+                  // Logout
+                  BlocProvider.of<AuthBloc>(context).add(const AuthLogoutRequested());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentRed,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                ),
+                child: const Text('Çıkış Yap'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -244,8 +436,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                     _buildQuickActionCard(
                       context,
                       icon: Icons.calendar_today_rounded,
-                      title: 'Ders Ekle',
-                      subtitle: 'Yeni ders planla',
+                      title: 'Müsaitlik',
+                      subtitle: 'Zaman ayarla',
                       color: AppTheme.accentGreen,
                       onTap: () {
                         Navigator.pop(context);
@@ -265,13 +457,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                       color: AppTheme.accentPurple,
                       onTap: () {
                         Navigator.pop(context);
-                        // TODO: Navigate to chat with proper user selection
-                        // Navigator.push(
-                        //   context,
-                        //   MaterialPageRoute(
-                        //     builder: (context) => const ChatScreen(),
-                        //   ),
-                        // );
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ChatListScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildQuickActionCard(
@@ -298,7 +489,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                       color: AppTheme.accentRed,
                       onTap: () {
                         Navigator.pop(context);
-                        // TODO: Navigate to reports
+                        // TODO: Navigate to performance dashboard
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Performans raporları yakında eklenecek'),
+                          ),
+                        );
                       },
                     ),
                   ],
@@ -715,7 +911,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
                 subtitle: 'Performans analizi',
                 color: const Color(0xFFF59E0B),
                 onTap: () {
-                  // TODO: Navigate to reports
+                  // TODO: Navigate to performance dashboard
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Performans raporları yakında eklenecek'),
+                    ),
+                  );
                 },
               ),
             ),

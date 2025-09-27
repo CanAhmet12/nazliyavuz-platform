@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_widgets.dart';
 import '../../services/enhanced_features_service.dart';
+import '../../services/api_service.dart';
 import '../profile/profile_edit_screen.dart';
 import '../profile/password_change_screen.dart';
 import 'help_center_screen.dart';
@@ -17,6 +18,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final ApiService _apiService = ApiService();
+  
   bool _isDarkMode = false;
   String _selectedLanguage = 'tr';
   bool _notificationsEnabled = true;
@@ -320,7 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.security_rounded,
             onTap: () {
               HapticFeedback.lightImpact();
-              // TODO: Navigate to 2FA setup
+              _show2FASetup();
             },
           ),
           const Divider(),
@@ -538,7 +541,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       cancelText: 'İptal',
       isDestructive: true,
       onConfirm: () {
-        // TODO: Implement account deletion
+        _deleteAccount();
         CustomWidgets.showSnackbar(
           context: context,
           message: 'Hesap silme işlemi başlatıldı',
@@ -551,7 +554,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showAboutDialog() {
     showAboutDialog(
       context: context,
-      applicationName: 'Nazliyavuz Platform',
+      applicationName: 'Rota Akademi',
       applicationVersion: '1.0.0',
       applicationIcon: Container(
         width: 60,
@@ -577,9 +580,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 16),
         const Text(
-          '© 2024 Nazliyavuz Platform. Tüm hakları saklıdır.',
+          '© 2025 Rota Akademi. Tüm hakları saklıdır.',
         ),
       ],
+    );
+  }
+
+  void _show2FASetup() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('İki Faktörlü Kimlik Doğrulama'),
+        content: const Text(
+          'İki faktörlü kimlik doğrulama hesabınızın güvenliğini artırır. '
+          'Bu özellik henüz geliştirilme aşamasındadır.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteAccount() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hesap Silme'),
+        content: const Text(
+          'Hesabınızı silmek için lütfen şifrenizi girin:',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await _apiService.deleteUserAccount(
+                  password: 'user_confirmation',
+                  confirmation: 'DELETE',
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Hesabınız başarıyla silindi'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                // Navigate to login or home
+                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Hesap silme hatası: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Sil', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../services/api_service.dart';
 import '../../models/assignment.dart';
+import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 
 class AssignmentDetailScreen extends StatefulWidget {
   final Assignment assignment;
-  final bool isTeacher;
 
   const AssignmentDetailScreen({
     super.key,
     required this.assignment,
-    this.isTeacher = false,
   });
 
   @override
@@ -20,461 +19,474 @@ class AssignmentDetailScreen extends StatefulWidget {
 
 class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
   final ApiService _apiService = ApiService();
-  final TextEditingController _notesController = TextEditingController();
+  final _submissionNotesController = TextEditingController();
   
   bool _isSubmitting = false;
-  PlatformFile? _selectedFile;
+  bool _isGrading = false;
+  String? _selectedFilePath;
+  String? _selectedFileName;
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = _getStatusColor(widget.assignment.status);
+    final isOverdue = widget.assignment.dueDate.isBefore(DateTime.now()) && 
+                      widget.assignment.status != 'graded' && 
+                      widget.assignment.status != 'submitted';
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Ödev Detayı'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
+        backgroundColor: AppTheme.primaryBlue,
+        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildAssignmentInfo(),
-            const SizedBox(height: 24),
-            _buildDescription(),
-            const SizedBox(height: 24),
-            _buildSubmissionSection(),
-            if (widget.assignment.grade != null) ...[
-              const SizedBox(height: 24),
-              _buildGradeSection(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAssignmentInfo() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    statusColor.withOpacity(0.1),
+                    statusColor.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: statusColor.withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          _getStatusIcon(widget.assignment.status),
+                          color: statusColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          widget.assignment.title,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      if (widget.assignment.grade != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.premiumGold.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            widget.assignment.grade!,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.premiumGold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.assignment.description,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.5,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Info Cards
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    widget.assignment.title,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: _buildInfoCard(
+                    'Son Tarih',
+                    DateFormat('dd MMM yyyy\nHH:mm').format(widget.assignment.dueDate),
+                    isOverdue ? Icons.warning_rounded : Icons.schedule_rounded,
+                    isOverdue ? AppTheme.accentRed : AppTheme.primaryBlue,
                   ),
-                ),
-                _buildStatusChip(widget.assignment.status),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoRow(
-              Icons.person,
-              'Öğretmen',
-              widget.assignment.teacherName,
-            ),
-            const SizedBox(height: 12),
-            _buildInfoRow(
-              Icons.schedule,
-              'Son Teslim Tarihi',
-              _formatDate(widget.assignment.dueDate),
-              isOverdue: _isOverdue(widget.assignment.dueDate),
-            ),
-            const SizedBox(height: 12),
-            _buildInfoRow(
-              Icons.signal_cellular_alt,
-              'Zorluk',
-              _getDifficultyText(widget.assignment.difficulty),
-            ),
-            const SizedBox(height: 12),
-            _buildInfoRow(
-              Icons.calendar_today,
-              'Verilme Tarihi',
-              _formatCreatedDate(widget.assignment.createdAt),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value, {bool isOverdue = false}) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 20,
-          color: isOverdue ? Colors.red : Colors.grey[600],
-        ),
-        const SizedBox(width: 12),
-        Text(
-          '$label: ',
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 14,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              color: isOverdue ? Colors.red : Colors.black87,
-              fontSize: 14,
-              fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDescription() {
-    if (widget.assignment.description.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Ödev Açıklaması',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              widget.assignment.description,
-              style: const TextStyle(
-                fontSize: 16,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubmissionSection() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Ödev Teslimi',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            if (widget.assignment.status == 'pending') ...[
-              _buildSubmissionForm(),
-            ] else ...[
-              _buildSubmissionInfo(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubmissionForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Dosya Seçin',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: _pickFile,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey[50],
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.upload_file,
-                  color: AppTheme.primaryBlue,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    _selectedFile?.name ?? 'Dosya seçmek için tıklayın',
-                    style: TextStyle(
-                      color: _selectedFile != null ? Colors.black87 : Colors.grey[600],
-                    ),
+                  child: _buildInfoCard(
+                    'Zorluk',
+                    _getDifficultyText(widget.assignment.difficulty),
+                    Icons.trending_up_rounded,
+                    _getDifficultyColor(widget.assignment.difficulty),
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Notlar (İsteğe Bağlı)',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _notesController,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: 'Ödev hakkında notlarınız...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _selectedFile != null && !_isSubmitting ? _submitAssignment : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            
+            const SizedBox(height: 20),
+            
+            // Teacher/Student Info
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.person_rounded,
+                    color: AppTheme.primaryBlue,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Öğretmen',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        Text(
+                          widget.assignment.teacherName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.grey[400],
+                    size: 16,
+                  ),
+                ],
               ),
             ),
-            child: _isSubmitting
-                ? const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            
+            const SizedBox(height: 20),
+            
+            // Submission Section (for students)
+            if (widget.assignment.status == 'pending') ...[
+              const Text(
+                'Ödev Teslimi',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // File Selection
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  children: [
+                    if (_selectedFileName != null) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.attach_file,
+                            color: AppTheme.accentGreen,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _selectedFileName!,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.accentGreen,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedFilePath = null;
+                                _selectedFileName = null;
+                              });
+                            },
+                            icon: const Icon(Icons.close, color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      InkWell(
+                        onTap: _pickFile,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.grey[400]!,
+                              style: BorderStyle.solid,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.cloud_upload,
+                                size: 48,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Dosya Seç',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      SizedBox(width: 12),
-                      Text('Teslim Ediliyor...'),
                     ],
-                  )
-                : const Text(
-                    'Ödevi Teslim Et',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSubmissionInfo() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.green[50],
-            border: Border.all(color: Colors.green[200]!),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.check_circle,
-                color: Colors.green[600],
+                  ],
+                ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
+              
+              const SizedBox(height: 16),
+              
+              // Submission Notes
+              TextFormField(
+                controller: _submissionNotesController,
+                decoration: const InputDecoration(
+                  labelText: 'Teslim Notları (İsteğe bağlı)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitAssignment,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isSubmitting
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Ödevi Teslim Et',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+            
+            // Submission Info (if submitted)
+            if (widget.assignment.status == 'submitted' || 
+                widget.assignment.status == 'graded') ...[
+              const Text(
+                'Teslim Bilgileri',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Ödev Teslim Edildi',
-                      style: TextStyle(
-                        color: Colors.green[800],
-                        fontWeight: FontWeight.bold,
+                    if (widget.assignment.submittedAt != null) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.upload_rounded,
+                            color: AppTheme.accentGreen,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Teslim Tarihi: ${DateFormat('dd MMM yyyy, HH:mm').format(widget.assignment.submittedAt!)}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    if (widget.assignment.submittedAt != null)
-                      Text(
-                        'Teslim Tarihi: ${_formatCreatedDate(widget.assignment.submittedAt!)}',
+                      const SizedBox(height: 12),
+                    ],
+                    
+                    if (widget.assignment.submissionFileName != null) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.attach_file,
+                            color: AppTheme.primaryBlue,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.assignment.submissionFileName!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.primaryBlue,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    
+                    if (widget.assignment.submissionNotes?.isNotEmpty == true) ...[
+                      const Text(
+                        'Öğrenci Notları:',
                         style: TextStyle(
-                          color: Colors.green[700],
-                          fontSize: 12,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.assignment.submissionNotes!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
-          ),
-        ),
-        if (widget.assignment.submissionFileName != null) ...[
-          const SizedBox(height: 16),
-          const Text(
-            'Teslim Edilen Dosya',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.insert_drive_file,
-                  color: AppTheme.primaryBlue,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(widget.assignment.submissionFileName!),
-                ),
-              ],
-            ),
-          ),
-        ],
-        if (widget.assignment.submissionNotes != null && 
-            widget.assignment.submissionNotes!.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          const Text(
-            'Teslim Notları',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey[50],
-            ),
-            child: Text(widget.assignment.submissionNotes!),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildGradeSection() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Değerlendirme',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(
-                  Icons.grade,
-                  color: _getGradeColor(widget.assignment.grade!),
-                  size: 32,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Not: ${widget.assignment.grade}',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: _getGradeColor(widget.assignment.grade!),
-                  ),
-                ),
-              ],
-            ),
-            if (widget.assignment.feedback != null && 
-                widget.assignment.feedback!.isNotEmpty) ...[
-              const SizedBox(height: 16),
+            
+            // Feedback Section (if graded)
+            if (widget.assignment.status == 'graded' && 
+                widget.assignment.feedback?.isNotEmpty == true) ...[
+              const SizedBox(height: 20),
               const Text(
                 'Öğretmen Geri Bildirimi',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey[50],
+                  color: AppTheme.premiumGold.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppTheme.premiumGold.withOpacity(0.3),
+                  ),
                 ),
-                child: Text(
-                  widget.assignment.feedback!,
-                  style: const TextStyle(height: 1.5),
-                ),
-              ),
-            ],
-            if (widget.assignment.gradedAt != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Değerlendirme Tarihi: ${_formatCreatedDate(widget.assignment.gradedAt!)}',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.grade_rounded,
+                          color: AppTheme.premiumGold,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Not: ${widget.assignment.grade}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.premiumGold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.assignment.feedback!,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    if (widget.assignment.gradedAt != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Notlandırma Tarihi: ${DateFormat('dd MMM yyyy, HH:mm').format(widget.assignment.gradedAt!)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -484,52 +496,45 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    Color color;
-    String text;
-    IconData icon;
-
-    switch (status) {
-      case 'pending':
-        color = Colors.orange;
-        text = 'Bekliyor';
-        icon = Icons.pending_actions;
-        break;
-      case 'submitted':
-        color = Colors.blue;
-        text = 'Teslim Edildi';
-        icon = Icons.check_circle;
-        break;
-      case 'graded':
-        color = Colors.green;
-        text = 'Değerlendirildi';
-        icon = Icons.grade;
-        break;
-      default:
-        color = Colors.grey;
-        text = 'Bilinmeyen';
-        icon = Icons.help;
-    }
-
+  Widget _buildInfoCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
         children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
+          Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+          const SizedBox(height: 8),
           Text(
-            text,
+            value,
             style: TextStyle(
-              color: color,
               fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -543,9 +548,10 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
         allowMultiple: false,
       );
 
-      if (result != null) {
+      if (result != null && result.files.single.path != null) {
         setState(() {
-          _selectedFile = result.files.first;
+          _selectedFilePath = result.files.single.path;
+          _selectedFileName = result.files.single.name;
         });
       }
     } catch (e) {
@@ -559,34 +565,41 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
   }
 
   Future<void> _submitAssignment() async {
-    if (_selectedFile == null) return;
-
     setState(() {
       _isSubmitting = true;
     });
 
     try {
       await _apiService.submitAssignment(
-        widget.assignment.id,
-        _selectedFile!,
-        _notesController.text.trim(),
+        assignmentId: widget.assignment.id,
+        submissionNotes: _submissionNotesController.text,
+        filePath: _selectedFilePath,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ödev başarıyla teslim edildi!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      Navigator.pop(context, true);
+      if (mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Ödev başarıyla teslim edildi'),
+              ],
+            ),
+            backgroundColor: AppTheme.accentGreen,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ödev teslim edilirken hata oluştu: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() {
         _isSubmitting = false;
@@ -594,23 +607,47 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = date.difference(now);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays} gün kaldı';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} saat kaldı';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} dakika kaldı';
-    } else {
-      return 'Süresi doldu';
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return AppTheme.accentOrange;
+      case 'submitted':
+        return AppTheme.accentGreen;
+      case 'graded':
+        return AppTheme.primaryBlue;
+      case 'overdue':
+        return AppTheme.accentRed;
+      default:
+        return Colors.grey;
     }
   }
 
-  String _formatCreatedDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'pending':
+        return Icons.pending_rounded;
+      case 'submitted':
+        return Icons.upload_rounded;
+      case 'graded':
+        return Icons.grade_rounded;
+      case 'overdue':
+        return Icons.warning_rounded;
+      default:
+        return Icons.help_outline_rounded;
+    }
+  }
+
+  Color _getDifficultyColor(String difficulty) {
+    switch (difficulty) {
+      case 'easy':
+        return AppTheme.accentGreen;
+      case 'medium':
+        return AppTheme.accentOrange;
+      case 'hard':
+        return AppTheme.accentRed;
+      default:
+        return Colors.grey;
+    }
   }
 
   String _getDifficultyText(String difficulty) {
@@ -622,32 +659,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
       case 'hard':
         return 'Zor';
       default:
-        return 'Bilinmeyen';
-    }
-  }
-
-  bool _isOverdue(DateTime dueDate) {
-    return DateTime.now().isAfter(dueDate);
-  }
-
-  Color _getGradeColor(String grade) {
-    switch (grade) {
-      case 'A+':
-      case 'A':
-        return Colors.green;
-      case 'B+':
-      case 'B':
-        return Colors.blue;
-      case 'C+':
-      case 'C':
-        return Colors.orange;
-      case 'D+':
-      case 'D':
-        return Colors.red;
-      case 'F':
-        return Colors.red[800]!;
-      default:
-        return Colors.grey;
+        return 'Bilinmiyor';
     }
   }
 }

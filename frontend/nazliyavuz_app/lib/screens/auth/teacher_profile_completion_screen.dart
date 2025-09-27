@@ -150,20 +150,23 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
+        toolbarHeight: 50,
         leading: _currentStep > 0
             ? IconButton(
                 onPressed: _previousStep,
-                icon: const Icon(Icons.arrow_back_ios_rounded),
+                icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
                 color: AppTheme.grey700,
+                padding: const EdgeInsets.all(8),
               )
             : null,
         title: Text(
-          'Profil Tamamlama',
+          'Öğretmen Profili',
           style: TextStyle(
             color: AppTheme.grey900,
             fontWeight: FontWeight.w600,
+            fontSize: 16,
           ),
         ),
         centerTitle: true,
@@ -211,15 +214,15 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
 
   Widget _buildProgressIndicator() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         children: [
           Row(
             children: List.generate(_totalSteps, (index) {
               return Expanded(
                 child: Container(
-                  margin: EdgeInsets.only(right: index < _totalSteps - 1 ? 8 : 0),
-                  height: 4,
+                  margin: EdgeInsets.only(right: index < _totalSteps - 1 ? 6 : 0),
+                  height: 3,
                   decoration: BoxDecoration(
                     color: index <= _currentStep
                         ? AppTheme.primaryBlue
@@ -230,12 +233,12 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
               );
             }),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             'Adım ${_currentStep + 1} / $_totalSteps',
             style: TextStyle(
               color: AppTheme.grey600,
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -246,14 +249,14 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
 
   Widget _buildPersonalInfoStep() {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -261,88 +264,95 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
                     AppTheme.accentPurple,
                   ],
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
+              child: Row(
                 children: [
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 50,
+                    height: 50,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(40),
+                      borderRadius: BorderRadius.circular(25),
                     ),
                     child: Icon(
                       Icons.person_rounded,
                       color: AppTheme.primaryBlue,
-                      size: 40,
+                      size: 24,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Hoş geldin ${widget.name}!',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Öğretmen profilinizi tamamlayalım',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 16,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hoş geldin ${widget.name}!',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Öğretmen profilinizi tamamlayalım',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
             
             // Bio Section
             _buildSectionHeader('Hakkınızda', Icons.description_rounded),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: TextFormField(
                 controller: _bioController,
-                maxLines: 4,
+                maxLines: 3,
                 decoration: InputDecoration(
                   hintText: 'Kendinizi tanıtın, deneyimlerinizi paylaşın...',
-                  hintStyle: TextStyle(color: AppTheme.grey500),
+                  hintStyle: TextStyle(color: AppTheme.grey500, fontSize: 14),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.all(20),
+                  contentPadding: const EdgeInsets.all(16),
                 ),
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 14),
               ),
             ),
             
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             
             // Specialization Section
             _buildSectionHeader('Uzmanlık Alanınız', Icons.school_rounded),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -364,12 +374,12 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
                     focusNode: focusNode,
                     decoration: InputDecoration(
                       hintText: 'Örn: Matematik, İngilizce, Fizik...',
-                      hintStyle: TextStyle(color: AppTheme.grey500),
+                      hintStyle: TextStyle(color: AppTheme.grey500, fontSize: 14),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(20),
-                      prefixIcon: Icon(Icons.work_rounded, color: AppTheme.primaryBlue),
+                      contentPadding: const EdgeInsets.all(16),
+                      prefixIcon: Icon(Icons.work_rounded, color: AppTheme.primaryBlue, size: 20),
                     ),
-                    style: const TextStyle(fontSize: 16),
+                    style: const TextStyle(fontSize: 14),
                     onChanged: (value) {
                       controller.value = controller.value.copyWith(text: value);
                     },
@@ -1029,14 +1039,14 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
 
   Widget _buildNavigationButtons() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -1047,38 +1057,38 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
               child: OutlinedButton(
                 onPressed: _previousStep,
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   side: BorderSide(color: AppTheme.grey300),
                 ),
                 child: const Text(
                   'Geri',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
-          if (_currentStep > 0) const SizedBox(width: 16),
+          if (_currentStep > 0) const SizedBox(width: 12),
           Expanded(
             flex: _currentStep == 0 ? 1 : 1,
             child: ElevatedButton(
               onPressed: _canProceed() ? _nextStep : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryBlue,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child: Text(
                 _currentStep == _totalSteps - 1 ? 'Profili Tamamla' : 'İleri',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1135,10 +1145,18 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
         barrierDismissible: false,
         builder: (context) => AlertDialog(
           content: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
-              const SizedBox(width: 20),
-              Text('Profil kaydediliyor...'),
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Profil kaydediliyor...',
+                style: TextStyle(fontSize: 14),
+              ),
             ],
           ),
         ),
@@ -1182,14 +1200,14 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 color: AppTheme.primaryBlue.withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -1197,27 +1215,27 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
               child: Icon(
                 Icons.check_circle_rounded,
                 color: AppTheme.primaryBlue,
-                size: 40,
+                size: 30,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             const Text(
               'Profil Tamamlandı!',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               'Öğretmen profiliniz başarıyla oluşturuldu. Onay sürecinden sonra öğrenciler sizi görebilecek.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.grey600,
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -1243,16 +1261,16 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryBlue,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: const Text(
                   'Ana Sayfaya Git',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1269,14 +1287,14 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 color: Colors.red.withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -1284,14 +1302,14 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
               child: Icon(
                 Icons.error_rounded,
                 color: Colors.red,
-                size: 40,
+                size: 30,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             const Text(
               'Hata Oluştu!',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1301,10 +1319,10 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.grey600,
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -1313,16 +1331,16 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: const Text(
                   'Tamam',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1495,9 +1513,9 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.1,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 1.2,
       ),
       itemCount: filteredCategories.length,
       itemBuilder: (context, index) {
@@ -1526,19 +1544,19 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
               });
             },
             child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150), // Reduced for better performance
+            duration: const Duration(milliseconds: 150),
             decoration: BoxDecoration(
               color: isSelected ? color : Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isSelected ? color : color.withOpacity(0.3),
-                width: 2,
+                width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (isSelected ? color : Colors.grey).withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  color: (isSelected ? color : Colors.grey).withOpacity(0.15),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -1548,14 +1566,14 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
                 Icon(
                   _getCategoryIcon(category.name),
                   color: isSelected ? Colors.white : color,
-                  size: 32,
+                  size: 24,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   category.name,
                   style: TextStyle(
                     color: isSelected ? Colors.white : color,
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.center,
@@ -1564,17 +1582,17 @@ class _TeacherProfileCompletionScreenState extends State<TeacherProfileCompletio
                 ),
                 if (isSelected)
                   Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       'Seçildi',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

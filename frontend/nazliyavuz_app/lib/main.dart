@@ -96,7 +96,7 @@ class NazliyavuzApp extends StatelessWidget {
     return BlocProvider(
       create: (context) => AuthBloc(ApiService()),
       child: MaterialApp(
-        title: 'Nazliyavuz Platform',
+        title: 'Rota Akademi',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeService.themeMode,

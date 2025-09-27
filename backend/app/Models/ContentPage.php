@@ -10,37 +10,31 @@ class ContentPage extends Model
     use HasFactory;
 
     protected $fillable = [
-        'slug',
         'title',
+        'slug',
         'content',
+        'excerpt',
         'meta_title',
         'meta_description',
         'is_active',
         'sort_order',
+        'published_at',
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-    ];
-
-    /**
-     * Get page by slug
-     */
-    public static function getBySlug(string $slug): ?self
+    protected function casts(): array
     {
-        return self::where('slug', $slug)
-            ->where('is_active', true)
-            ->first();
+        return [
+            'is_active' => 'boolean',
+            'published_at' => 'datetime',
+        ];
     }
 
     /**
-     * Get all active pages
+     * Get the route key for the model
      */
-    public static function getActivePages()
+    public function getRouteKeyName()
     {
-        return self::where('is_active', true)
-            ->orderBy('sort_order')
-            ->get();
+        return 'slug';
     }
 
     /**
@@ -52,10 +46,10 @@ class ContentPage extends Model
     }
 
     /**
-     * Scope for ordered pages
+     * Scope for published pages
      */
-    public function scopeOrdered($query)
+    public function scopePublished($query)
     {
-        return $query->orderBy('sort_order');
+        return $query->where('published_at', '<=', now());
     }
 }

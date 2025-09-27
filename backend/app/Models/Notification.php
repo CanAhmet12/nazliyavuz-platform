@@ -12,20 +12,26 @@ class Notification extends Model
     protected $fillable = [
         'user_id',
         'type',
-        'payload',
+        'title',
+        'message',
+        'data',
+        'is_read',
         'read_at',
+        'action_url',
+        'action_text',
     ];
 
     protected function casts(): array
     {
         return [
-            'payload' => 'array',
+            'data' => 'array',
+            'is_read' => 'boolean',
             'read_at' => 'datetime',
         ];
     }
 
     /**
-     * Get the user that owns the notification
+     * Get the user who owns this notification
      */
     public function user()
     {
@@ -37,7 +43,7 @@ class Notification extends Model
      */
     public function scopeUnread($query)
     {
-        return $query->whereNull('read_at');
+        return $query->where('is_read', false);
     }
 
     /**
@@ -45,7 +51,15 @@ class Notification extends Model
      */
     public function scopeRead($query)
     {
-        return $query->whereNotNull('read_at');
+        return $query->where('is_read', true);
+    }
+
+    /**
+     * Scope for notifications by type
+     */
+    public function scopeByType($query, $type)
+    {
+        return $query->where('type', $type);
     }
 
     /**
@@ -53,7 +67,10 @@ class Notification extends Model
      */
     public function markAsRead()
     {
-        $this->update(['read_at' => now()]);
+        $this->update([
+            'is_read' => true,
+            'read_at' => now(),
+        ]);
     }
 
     /**
@@ -61,46 +78,9 @@ class Notification extends Model
      */
     public function markAsUnread()
     {
-        $this->update(['read_at' => null]);
-    }
-
-    /**
-     * Check if notification is read
-     */
-    public function isRead(): bool
-    {
-        return !is_null($this->read_at);
-    }
-
-    /**
-     * Check if notification is unread
-     */
-    public function isUnread(): bool
-    {
-        return is_null($this->read_at);
-    }
-
-    /**
-     * Get notification title
-     */
-    public function getTitleAttribute()
-    {
-        return $this->payload['title'] ?? 'Yeni Bildirim';
-    }
-
-    /**
-     * Get notification message
-     */
-    public function getMessageAttribute()
-    {
-        return $this->payload['message'] ?? '';
-    }
-
-    /**
-     * Get notification data
-     */
-    public function getDataAttribute()
-    {
-        return $this->payload['data'] ?? [];
+        $this->update([
+            'is_read' => false,
+            'read_at' => null,
+        ]);
     }
 }

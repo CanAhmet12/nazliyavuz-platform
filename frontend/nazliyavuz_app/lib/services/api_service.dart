@@ -6,11 +6,11 @@ import 'package:flutter/foundation.dart' hide Category;
 import '../models/user.dart';
 import '../models/teacher.dart';
 import '../models/reservation.dart';
-import '../models/notification.dart';
 import '../models/rating.dart';
 import '../models/category.dart';
 import '../models/chat.dart';
 import '../models/message.dart';
+import '../models/assignment.dart';
 
 class ApiService {
   static const String baseUrl = kDebugMode 
@@ -22,6 +22,9 @@ class ApiService {
   // Callback for unauthorized access
   Function()? onUnauthorized;
   final Map<String, dynamic> _cache = {};
+  
+  // Performance optimization
+  Timer? _cacheCleanupTimer;
 
   ApiService() {
     if (kDebugMode) {
@@ -88,6 +91,44 @@ class ApiService {
     ));
 
     _loadToken();
+    _startCacheCleanup();
+  }
+
+  void _startCacheCleanup() {
+    _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
+      _cleanupCache();
+    });
+  }
+
+  void _cleanupCache() {
+    if (kDebugMode) {
+      print('🧹 [CACHE_CLEANUP] Cleaning up expired cache entries...');
+    }
+    
+    final now = DateTime.now();
+    final keysToRemove = <String>[];
+    
+    _cache.forEach((key, value) {
+      if (value is Map<String, dynamic> && value.containsKey('expires_at')) {
+        final expiresAt = DateTime.parse(value['expires_at']);
+        if (now.isAfter(expiresAt)) {
+          keysToRemove.add(key);
+        }
+      }
+    });
+    
+    for (final key in keysToRemove) {
+      _cache.remove(key);
+    }
+    
+    if (kDebugMode && keysToRemove.isNotEmpty) {
+      print('🧹 [CACHE_CLEANUP] Removed ${keysToRemove.length} expired cache entries');
+    }
+  }
+
+  void dispose() {
+    _cacheCleanupTimer?.cancel();
+    _cache.clear();
   }
 
   Future<void> _loadToken() async {
@@ -485,6 +526,35 @@ class ApiService {
     }
   }
 
+  Future<List<User>> getTeacherStudents() async {
+    try {
+      final response = await _dio.get('/teacher/students');
+      return (response.data['students'] as List)
+          .map((json) => User.fromJson(json))
+          .toList();
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<List<dynamic>> getTeacherLessons() async {
+    try {
+      final response = await _dio.get('/teacher/lessons');
+      return response.data['lessons'] as List;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getTeacherStatistics() async {
+    try {
+      final response = await _dio.get('/teacher/statistics');
+      return response.data['statistics'];
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<List<Teacher>> getTeachers({
     String? category,
     String? level,
@@ -502,7 +572,10 @@ class ApiService {
       
       // Cache'den kontrol et
       if (_cache.containsKey(cacheKey)) {
-        return _cache[cacheKey] as List<Teacher>;
+        final cachedData = _cache[cacheKey];
+        if (cachedData is Map<String, dynamic> && cachedData.containsKey('data')) {
+          return cachedData['data'] as List<Teacher>;
+        }
       }
 
       final queryParams = <String, dynamic>{
@@ -529,10 +602,10 @@ class ApiService {
           .toList();
 
       // Cache'e kaydet (5 dakika)
-      _cache[cacheKey] = teachers;
-      Timer(const Duration(minutes: 5), () {
-        _cache.remove(cacheKey);
-      });
+      _cache[cacheKey] = {
+        'data': teachers,
+        'expires_at': DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
+      };
       
       return teachers;
     } on DioException catch (e) {
@@ -543,7 +616,7 @@ class ApiService {
   Future<List<Teacher>> getFeaturedTeachers() async {
     try {
       final response = await _dio.get('/teachers/featured');
-      return (response.data['data'] as List)
+      return (response.data['featured_teachers'] as List)
           .map((json) => Teacher.fromJson(json))
           .toList();
     } on DioException catch (e) {
@@ -551,14 +624,6 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getTeacherStatistics() async {
-    try {
-      final response = await _dio.get('/teachers/statistics');
-      return response.data['data'];
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
 
   Future<Teacher> getTeacher(int teacherId) async {
     try {
@@ -750,11 +815,11 @@ class ApiService {
   // Search endpoints
   Future<Map<String, dynamic>> searchTeachers({
     String? query,
-    int? categoryId,
+    String? category,
     double? minPrice,
     double? maxPrice,
-    double? ratingMin,
-    bool? onlineOnly,
+    double? rating,
+    String? location,
     String? sortBy,
     int page = 1,
     int perPage = 20,
@@ -770,10 +835,10 @@ class ApiService {
       };
 
       if (query != null && query.isNotEmpty) {
-        queryParams['query'] = query;
+        queryParams['q'] = query;
       }
-      if (categoryId != null) {
-        queryParams['category_id'] = categoryId;
+      if (category != null) {
+        queryParams['category'] = category;
       }
       if (minPrice != null) {
         queryParams['min_price'] = minPrice;
@@ -781,11 +846,11 @@ class ApiService {
       if (maxPrice != null) {
         queryParams['max_price'] = maxPrice;
       }
-      if (ratingMin != null) {
-        queryParams['rating_min'] = ratingMin;
+      if (rating != null) {
+        queryParams['rating'] = rating;
       }
-      if (onlineOnly != null) {
-        queryParams['online_only'] = onlineOnly;
+      if (location != null) {
+        queryParams['location'] = location;
       }
       if (sortBy != null) {
         queryParams['sort_by'] = sortBy;
@@ -812,21 +877,22 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getSearchSuggestions(String query) async {
+  Future<List<Map<String, dynamic>>> getSearchSuggestions(String query, {int limit = 10}) async {
     if (kDebugMode) {
       print('🔍 [GET_SUGGESTIONS] Getting search suggestions for: $query');
     }
     
     try {
       final response = await _dio.get('/search/suggestions', queryParameters: {
-        'query': query,
+        'q': query,
+        'limit': limit,
       });
 
       if (kDebugMode) {
         print('✅ [GET_SUGGESTIONS] Suggestions retrieved successfully!');
       }
 
-      return List<Map<String, dynamic>>.from(response.data['suggestions']);
+      return (response.data['suggestions'] as List).cast<Map<String, dynamic>>();
     } on DioException catch (e) {
       if (kDebugMode) {
         print('❌ [GET_SUGGESTIONS] Failed to get suggestions');
@@ -841,7 +907,7 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getPopularSearches() async {
+  Future<List<String>> getPopularSearches() async {
     if (kDebugMode) {
       print('🔍 [GET_POPULAR_SEARCHES] Getting popular searches...');
     }
@@ -853,7 +919,7 @@ class ApiService {
         print('✅ [GET_POPULAR_SEARCHES] Popular searches retrieved successfully!');
       }
 
-      return List<Map<String, dynamic>>.from(response.data['popular_searches']);
+      return (response.data['popular_searches'] as List).cast<String>();
     } on DioException catch (e) {
       if (kDebugMode) {
         print('❌ [GET_POPULAR_SEARCHES] Failed to get popular searches');
@@ -880,7 +946,7 @@ class ApiService {
         print('✅ [GET_SEARCH_FILTERS] Search filters retrieved successfully!');
       }
 
-      return response.data;
+      return response.data['filters'];
     } on DioException catch (e) {
       if (kDebugMode) {
         print('❌ [GET_SEARCH_FILTERS] Failed to get search filters');
@@ -963,20 +1029,31 @@ class ApiService {
   }
 
   // Notification endpoints
-  Future<List<Notification>> getNotifications() async {
+  Future<Map<String, dynamic>> getNotifications({
+    String? type,
+    bool? isRead,
+    int page = 1,
+    int perPage = 20,
+  }) async {
     try {
-      final response = await _dio.get('/notifications');
-      return (response.data as List)
-          .map((json) => Notification.fromJson(json))
-          .toList();
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'per_page': perPage,
+      };
+      
+      if (type != null) queryParams['type'] = type;
+      if (isRead != null) queryParams['is_read'] = isRead;
+
+      final response = await _dio.get('/notifications', queryParameters: queryParams);
+      return response.data;
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  Future<void> markNotificationAsRead(int id) async {
+  Future<void> markNotificationAsRead(int notificationId) async {
     try {
-      await _dio.put('/notifications/$id/read');
+      await _dio.put('/notifications/$notificationId/read');
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -985,6 +1062,23 @@ class ApiService {
   Future<void> markAllNotificationsAsRead() async {
     try {
       await _dio.put('/notifications/read-all');
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<void> deleteNotification(int notificationId) async {
+    try {
+      await _dio.delete('/notifications/$notificationId');
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getNotificationStatistics() async {
+    try {
+      final response = await _dio.get('/notifications/statistics');
+      return response.data['statistics'];
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -1385,14 +1479,124 @@ class ApiService {
     }
   }
 
-  // Assignment endpoints
-  Future<Map<String, dynamic>> getAssignments(int otherUserId, int? reservationId) async {
+  // Reservations endpoints
+  Future<List<Reservation>> getReservations({
+    String? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
     try {
-      final response = await _dio.get('/assignments', queryParameters: {
-        'other_user_id': otherUserId,
-        'reservation_id': reservationId,
+      final queryParams = <String, dynamic>{};
+      
+      if (status != null) queryParams['status'] = status;
+      if (fromDate != null) queryParams['from_date'] = fromDate.toIso8601String();
+      if (toDate != null) queryParams['to_date'] = toDate.toIso8601String();
+
+      final response = await _dio.get('/reservations', queryParameters: queryParams);
+      
+      final reservationsData = response.data['reservations'] as List;
+      return reservationsData.map((json) => Reservation.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getReservationStatistics() async {
+    try {
+      final response = await _dio.get('/reservations/statistics');
+      return response.data['statistics'];
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // Assignment endpoints
+  Future<List<Assignment>> getAssignments() async {
+    try {
+      final response = await _dio.get('/assignments');
+      final assignmentsData = response.data['assignments'] as List;
+      return assignmentsData.map((json) => Assignment.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createAssignment({
+    required int studentId,
+    required String title,
+    required String description,
+    required DateTime dueDate,
+    required String difficulty,
+    int? reservationId,
+  }) async {
+    try {
+      final response = await _dio.post('/assignments', data: {
+        'student_id': studentId,
+        'title': title,
+        'description': description,
+        'due_date': dueDate.toIso8601String(),
+        'difficulty': difficulty,
+        if (reservationId != null) 'reservation_id': reservationId,
       });
       return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> submitAssignment({
+    required int assignmentId,
+    String? submissionNotes,
+    String? filePath,
+  }) async {
+    try {
+      FormData formData = FormData.fromMap({
+        'submission_notes': submissionNotes,
+        if (filePath != null)
+          'file': await MultipartFile.fromFile(filePath),
+      });
+
+      final response = await _dio.post('/assignments/$assignmentId/submit', data: formData);
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+
+  // Lesson endpoints
+  Future<List<dynamic>> getUserLessons({
+    String? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      
+      if (status != null) queryParams['status'] = status;
+      if (fromDate != null) queryParams['from_date'] = fromDate.toIso8601String();
+      if (toDate != null) queryParams['to_date'] = toDate.toIso8601String();
+
+      final response = await _dio.get('/lessons', queryParameters: queryParams);
+      return response.data['lessons'] as List;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getLessonStatistics() async {
+    try {
+      final response = await _dio.get('/lessons/statistics');
+      return response.data['statistics'];
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<List<dynamic>> getUpcomingLessons() async {
+    try {
+      final response = await _dio.get('/lessons/upcoming');
+      return response.data['upcoming_lessons'] as List;
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -1439,45 +1643,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createAssignment(Map<String, dynamic> assignmentData) async {
-    try {
-      final response = await _dio.post('/assignments', data: assignmentData);
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
 
-  Future<Map<String, dynamic>> submitAssignment(
-    int assignmentId,
-    dynamic file, // PlatformFile or String path
-    String notes,
-  ) async {
-    try {
-      MultipartFile multipartFile;
-      
-      if (file is String) {
-        // File path
-        multipartFile = await MultipartFile.fromFile(file);
-      } else {
-        // PlatformFile
-        multipartFile = MultipartFile.fromBytes(
-          file.bytes!,
-          filename: file.name,
-        );
-      }
 
-      final formData = FormData.fromMap({
-        'file': multipartFile,
-        'notes': notes,
-      });
-
-      final response = await _dio.post('/assignments/$assignmentId/submit', data: formData);
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
 
   Future<Map<String, dynamic>> gradeAssignment(
     int assignmentId,
@@ -1588,11 +1755,11 @@ class ApiService {
     }
   }
 
-  // Content pages endpoints
-  Future<List<dynamic>> getContentPages() async {
+  // Content page endpoints
+  Future<List<Map<String, dynamic>>> getContentPages() async {
     try {
       final response = await _dio.get('/content-pages');
-      return response.data['data'];
+      return (response.data['pages'] as List).cast<Map<String, dynamic>>();
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -1601,7 +1768,7 @@ class ApiService {
   Future<Map<String, dynamic>> getContentPage(String slug) async {
     try {
       final response = await _dio.get('/content-pages/$slug');
-      return response.data;
+      return response.data['page'];
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -1609,6 +1776,12 @@ class ApiService {
 
   // Error handling
   String _handleError(DioException error) {
+    if (kDebugMode) {
+      print('🔍 [ERROR_HANDLER] Processing error: ${error.type}');
+      print('🔍 [ERROR_HANDLER] Status: ${error.response?.statusCode}');
+      print('🔍 [ERROR_HANDLER] Data: ${error.response?.data}');
+    }
+    
     if (error.response != null) {
       final data = error.response!.data;
       if (data is Map<String, dynamic> && data.containsKey('error')) {
@@ -1632,11 +1805,42 @@ class ApiService {
         }
         return 'Bir hata oluştu';
       }
-      return 'Sunucu hatası: ${error.response!.statusCode}';
+      
+      // Handle specific HTTP status codes
+      switch (error.response!.statusCode) {
+        case 400:
+          return 'Geçersiz istek';
+        case 401:
+          return 'Yetkilendirme hatası';
+        case 403:
+          return 'Erişim reddedildi';
+        case 404:
+          return 'Kaynak bulunamadı';
+        case 422:
+          return 'Doğrulama hatası';
+        case 429:
+          return 'Çok fazla istek gönderildi';
+        case 500:
+          return 'Sunucu hatası';
+        case 502:
+          return 'Geçici sunucu hatası';
+        case 503:
+          return 'Servis kullanılamıyor';
+        default:
+          return 'Sunucu hatası: ${error.response!.statusCode}';
+      }
     } else if (error.type == DioExceptionType.connectionTimeout) {
       return 'Bağlantı zaman aşımı';
     } else if (error.type == DioExceptionType.receiveTimeout) {
       return 'Yanıt zaman aşımı';
+    } else if (error.type == DioExceptionType.sendTimeout) {
+      return 'Gönderim zaman aşımı';
+    } else if (error.type == DioExceptionType.connectionError) {
+      return 'Bağlantı hatası';
+    } else if (error.type == DioExceptionType.badResponse) {
+      return 'Geçersiz yanıt';
+    } else if (error.type == DioExceptionType.cancel) {
+      return 'İstek iptal edildi';
     } else {
       return 'Ağ hatası: ${error.message}';
     }
@@ -1711,57 +1915,6 @@ class ApiService {
   }
 
 
-  // Lesson endpoints
-  Future<List<dynamic>> getUserLessons({
-    String? status,
-    String? dateFrom,
-    String? dateTo,
-    String? sortBy,
-    String? sortOrder,
-    int page = 1,
-    int perPage = 20,
-  }) async {
-    try {
-      final queryParams = <String, dynamic>{
-        'page': page,
-        'per_page': perPage,
-      };
-
-      if (status != null && status.isNotEmpty) queryParams['status'] = status;
-      if (dateFrom != null && dateFrom.isNotEmpty) queryParams['date_from'] = dateFrom;
-      if (dateTo != null && dateTo.isNotEmpty) queryParams['date_to'] = dateTo;
-      if (sortBy != null && sortBy.isNotEmpty) queryParams['sort_by'] = sortBy;
-      if (sortOrder != null && sortOrder.isNotEmpty) queryParams['sort_order'] = sortOrder;
-
-      final response = await _dio.get('/lessons', queryParameters: queryParams);
-      
-      if (kDebugMode) {
-        print('📚 Lessons API Response: ${response.statusCode}');
-      }
-      
-      return response.data['data'];
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getLessonStatistics() async {
-    try {
-      final response = await _dio.get('/lessons/statistics');
-      return response.data['data'];
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  Future<List<dynamic>> getUpcomingLessons() async {
-    try {
-      final response = await _dio.get('/lessons/upcoming');
-      return response.data['data'];
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
 
 
   Future<Map<String, dynamic>> updateLessonNotes({
@@ -1948,6 +2101,7 @@ class ApiService {
       throw _handleError(e);
     }
   }
+
 
 
   // Generic HTTP methods

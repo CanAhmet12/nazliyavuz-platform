@@ -20,6 +20,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\MailService::class, function ($app) {
             return new \App\Services\MailService();
         });
+        
+        // Register PushNotificationService
+        $this->app->singleton(\App\Services\PushNotificationService::class, function ($app) {
+            return new \App\Services\PushNotificationService();
+        });
+        
+        // Register RealTimeChatService
+        $this->app->singleton(\App\Services\RealTimeChatService::class, function ($app) {
+            return new \App\Services\RealTimeChatService();
+        });
     }
 
     /**

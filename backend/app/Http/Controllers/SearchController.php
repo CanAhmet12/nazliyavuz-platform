@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Teacher;
-use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use App\Models\Teacher;
+use App\Models\Category;
+use App\Models\User;
 
 class SearchController extends Controller
 {
@@ -15,134 +16,103 @@ class SearchController extends Controller
      */
     public function searchTeachers(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'query' => 'sometimes|string|max:255',
-            'category_id' => 'sometimes|exists:categories,id',
-            'min_price' => 'sometimes|numeric|min:0',
-            'max_price' => 'sometimes|numeric|min:0|gte:min_price',
-            'rating_min' => 'sometimes|numeric|min:0|max:5',
-            'online_only' => 'sometimes|boolean',
-            'sort_by' => 'sometimes|in:price_asc,price_desc,rating_desc,created_desc',
-            'page' => 'sometimes|integer|min:1',
-            'per_page' => 'sometimes|integer|min:1|max:50',
-        ]);
-
-        if ($validator->fails()) {
+        try {
+            $query = $request->get('q', '');
+            $category = $request->get('category');
+            $minPrice = $request->get('min_price');
+            $maxPrice = $request->get('max_price');
+            $rating = $request->get('rating');
+            $location = $request->get('location');
+            $sortBy = $request->get('sort_by', 'relevance');
+            $page = $request->get('page', 1);
+            $perPage = $request->get('per_page', 20);
+            
+            $teachersQuery = Teacher::with(['user', 'categories'])
+                ->whereHas('user', function ($q) use ($query) {
+                    if ($query) {
+                        $q->where('name', 'like', "%{$query}%")
+                          ->orWhere('email', 'like', "%{$query}%");
+                    }
+                });
+            
+            // Apply category filter
+            if ($category) {
+                $teachersQuery->whereHas('categories', function ($q) use ($category) {
+                    $q->where('slug', $category);
+                });
+            }
+            
+            // Apply price filter
+            if ($minPrice) {
+                $teachersQuery->where('hourly_rate', '>=', $minPrice);
+            }
+            if ($maxPrice) {
+                $teachersQuery->where('hourly_rate', '<=', $maxPrice);
+            }
+            
+            // Apply rating filter
+            if ($rating) {
+                $teachersQuery->where('average_rating', '>=', $rating);
+            }
+            
+            // Apply location filter
+            if ($location) {
+                $teachersQuery->where('location', 'like', "%{$location}%");
+            }
+            
+            // Apply sorting
+            switch ($sortBy) {
+                case 'price_low':
+                    $teachersQuery->orderBy('hourly_rate', 'asc');
+                    break;
+                case 'price_high':
+                    $teachersQuery->orderBy('hourly_rate', 'desc');
+                    break;
+                case 'rating':
+                    $teachersQuery->orderBy('average_rating', 'desc');
+                    break;
+                case 'experience':
+                    $teachersQuery->orderBy('experience_years', 'desc');
+                    break;
+                case 'relevance':
+                default:
+                    $teachersQuery->orderBy('average_rating', 'desc')
+                                 ->orderBy('total_lessons', 'desc');
+                    break;
+            }
+            
+            $teachers = $teachersQuery->paginate($perPage, ['*'], 'page', $page);
+            
             return response()->json([
-                'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
-                ]
-            ], 400);
-        }
-
-        $query = Teacher::with(['user', 'categories'])
-            ->where('is_approved', true);
-
-        // Search by name or specialization
-        if ($request->filled('query')) {
-            $searchQuery = $request->input('query');
-            $query->whereHas('user', function ($q) use ($searchQuery) {
-                $q->where('name', 'LIKE', "%{$searchQuery}%");
-            })->orWhere('bio', 'LIKE', "%{$searchQuery}%");
-        }
-
-        // Filter by category
-        if ($request->filled('category_id')) {
-            $query->whereHas('categories', function ($q) use ($request) {
-                $q->where('categories.id', $request->category_id);
-            });
-        }
-
-        // Filter by price range
-        if ($request->filled('min_price')) {
-            $query->where('price_hour', '>=', $request->min_price);
-        }
-        if ($request->filled('max_price')) {
-            $query->where('price_hour', '<=', $request->max_price);
-        }
-
-        // Filter by rating
-        if ($request->filled('rating_min')) {
-            $query->where('rating_avg', '>=', $request->rating_min);
-        }
-
-        // Filter by online availability
-        if ($request->filled('online_only') && $request->online_only) {
-            $query->where('online_available', true);
-        }
-
-        // Sorting
-        $sortBy = $request->get('sort_by', 'rating_desc');
-        switch ($sortBy) {
-            case 'price_asc':
-                $query->orderBy('price_hour', 'asc');
-                break;
-            case 'price_desc':
-                $query->orderBy('price_hour', 'desc');
-                break;
-            case 'rating_desc':
-                $query->orderBy('rating_avg', 'desc');
-                break;
-            case 'created_desc':
-                $query->orderBy('created_at', 'desc');
-                break;
-            default:
-                $query->orderBy('rating_avg', 'desc');
-        }
-
-        // Pagination
-        $perPage = $request->get('per_page', 20);
-        $teachers = $query->paginate($perPage);
-
-        // Format response
-        $formattedTeachers = $teachers->map(function ($teacher) {
-            return [
-                'id' => $teacher->id,
-                'user_id' => $teacher->user_id,
-                'name' => $teacher->user->name,
-                'email' => $teacher->user->email,
-                'profile_photo_url' => $teacher->user->profile_photo_url,
-                'bio' => $teacher->bio,
-                'specialization' => $teacher->specialization,
-                'education' => $teacher->education,
-                'certifications' => $teacher->certifications,
-                'price_hour' => $teacher->price_hour,
-                'languages' => $teacher->languages,
-                'rating_avg' => $teacher->rating_avg,
-                'rating_count' => $teacher->rating_count,
-                'online_available' => $teacher->online_available,
-                'categories' => $teacher->categories->map(function ($category) {
-                    return [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'slug' => $category->slug,
-                        'description' => $category->description,
-                    ];
-                }),
-                'created_at' => $teacher->created_at,
-                'updated_at' => $teacher->updated_at,
-            ];
-        });
-
-        return response()->json([
-            'teachers' => $formattedTeachers,
-            'meta' => [
-                'current_page' => $teachers->currentPage(),
-                'last_page' => $teachers->lastPage(),
-                'per_page' => $teachers->perPage(),
-                'total' => $teachers->total(),
-                'filters_applied' => [
-                    'query' => $request->query,
-                    'category_id' => $request->category_id,
-                    'min_price' => $request->min_price,
-                    'max_price' => $request->max_price,
-                    'rating_min' => $request->rating_min,
-                    'online_only' => $request->online_only,
+                'success' => true,
+                'teachers' => $teachers->items(),
+                'pagination' => [
+                    'current_page' => $teachers->currentPage(),
+                    'last_page' => $teachers->lastPage(),
+                    'per_page' => $teachers->perPage(),
+                    'total' => $teachers->total(),
+                ],
+                'filters' => [
+                    'query' => $query,
+                    'category' => $category,
+                    'min_price' => $minPrice,
+                    'max_price' => $maxPrice,
+                    'rating' => $rating,
+                    'location' => $location,
                     'sort_by' => $sortBy,
                 ]
-            ]
-        ]);
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error searching teachers: ' . $e->getMessage());
+            
+            return response()->json([
+                'error' => [
+                    'code' => 'TEACHER_SEARCH_ERROR',
+                    'message' => 'Öğretmen arama sırasında bir hata oluştu'
+                ]
+            ], 500);
+        }
     }
 
     /**
@@ -150,58 +120,68 @@ class SearchController extends Controller
      */
     public function getSuggestions(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'query' => 'required|string|min:2|max:255',
-        ]);
-
-        if ($validator->fails()) {
+        try {
+            $query = $request->get('q', '');
+            $limit = $request->get('limit', 10);
+            
+            if (strlen($query) < 2) {
+                return response()->json([
+                    'success' => true,
+                    'suggestions' => []
+                ]);
+            }
+            
+            $suggestions = [];
+            
+            // Teacher name suggestions
+            $teacherNames = User::where('role', 'teacher')
+                ->where('name', 'like', "%{$query}%")
+                ->limit($limit)
+                ->pluck('name')
+                ->map(function ($name) {
+                    return [
+                        'type' => 'teacher',
+                        'text' => $name,
+                        'icon' => 'person'
+                    ];
+                });
+            
+            $suggestions = array_merge($suggestions, $teacherNames->toArray());
+            
+            // Category suggestions
+            $categories = Category::where('name', 'like', "%{$query}%")
+                ->where('is_active', true)
+                ->limit($limit)
+                ->get()
+                ->map(function ($category) {
+                    return [
+                        'type' => 'category',
+                        'text' => $category->name,
+                        'icon' => 'category',
+                        'slug' => $category->slug
+                    ];
+                });
+            
+            $suggestions = array_merge($suggestions, $categories->toArray());
+            
+            // Limit total suggestions
+            $suggestions = array_slice($suggestions, 0, $limit);
+            
+            return response()->json([
+                'success' => true,
+                'suggestions' => $suggestions
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error getting search suggestions: ' . $e->getMessage());
+            
             return response()->json([
                 'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
+                    'code' => 'SEARCH_SUGGESTIONS_ERROR',
+                    'message' => 'Arama önerileri yüklenirken bir hata oluştu'
                 ]
-            ], 400);
+            ], 500);
         }
-
-        $searchQuery = $request->input('query');
-        $suggestions = [];
-
-        // Teacher name suggestions
-        $teacherNames = Teacher::whereHas('user', function ($q) use ($searchQuery) {
-            $q->where('name', 'LIKE', "%{$searchQuery}%");
-        })
-        ->with('user')
-        ->limit(5)
-        ->get()
-        ->map(function ($teacher) {
-            return [
-                'type' => 'teacher',
-                'id' => $teacher->user_id,
-                'name' => $teacher->user->name,
-                'text' => $teacher->user->name,
-            ];
-        });
-
-        $suggestions = array_merge($suggestions, $teacherNames->toArray());
-
-        // Category suggestions
-        $categoryNames = Category::where('name', 'LIKE', "%{$searchQuery}%")
-            ->limit(5)
-            ->get()
-            ->map(function ($category) {
-                return [
-                    'type' => 'category',
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'text' => $category->name,
-                ];
-            });
-
-        $suggestions = array_merge($suggestions, $categoryNames->toArray());
-
-        return response()->json([
-            'suggestions' => $suggestions
-        ]);
     }
 
     /**
@@ -209,22 +189,36 @@ class SearchController extends Controller
      */
     public function getPopularSearches(): JsonResponse
     {
-        $popularCategories = Category::withCount('teachers')
-            ->orderBy('teachers_count', 'desc')
-            ->limit(10)
-            ->get()
-            ->map(function ($category) {
-                return [
-                    'type' => 'category',
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'teacher_count' => $category->teachers_count,
-                ];
-            });
-
-        return response()->json([
-            'popular_searches' => $popularCategories
-        ]);
+        try {
+            // Mock popular searches - in production, this would come from analytics
+            $popularSearches = [
+                'Matematik',
+                'İngilizce',
+                'Fizik',
+                'Kimya',
+                'Biyoloji',
+                'Tarih',
+                'Coğrafya',
+                'Türkçe',
+                'Edebiyat',
+                'Felsefe'
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'popular_searches' => $popularSearches
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error getting popular searches: ' . $e->getMessage());
+            
+            return response()->json([
+                'error' => [
+                    'code' => 'POPULAR_SEARCHES_ERROR',
+                    'message' => 'Popüler aramalar yüklenirken bir hata oluştu'
+                ]
+            ], 500);
+        }
     }
 
     /**
@@ -232,34 +226,60 @@ class SearchController extends Controller
      */
     public function getFilters(): JsonResponse
     {
-        $categories = Category::where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->map(function ($category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'slug' => $category->slug,
-                    'teacher_count' => $category->teachers()->count(),
-                ];
-            });
-
-        $priceRange = Teacher::selectRaw('MIN(price_hour) as min_price, MAX(price_hour) as max_price')
-            ->where('is_approved', true)
-            ->first();
-
-        return response()->json([
-            'categories' => $categories,
-            'price_range' => [
-                'min' => $priceRange->min_price ?? 0,
-                'max' => $priceRange->max_price ?? 1000,
-            ],
-            'sort_options' => [
-                ['value' => 'rating_desc', 'label' => 'En Yüksek Puan'],
-                ['value' => 'price_asc', 'label' => 'En Düşük Fiyat'],
-                ['value' => 'price_desc', 'label' => 'En Yüksek Fiyat'],
-                ['value' => 'created_desc', 'label' => 'En Yeni'],
-            ]
-        ]);
+        try {
+            // Get categories for filter
+            $categories = Category::active()
+                ->root()
+                ->with('children')
+                ->orderBy('sort_order')
+                ->get();
+            
+            // Get price ranges
+            $priceRanges = [
+                ['min' => 0, 'max' => 50, 'label' => '0-50 TL'],
+                ['min' => 50, 'max' => 100, 'label' => '50-100 TL'],
+                ['min' => 100, 'max' => 200, 'label' => '100-200 TL'],
+                ['min' => 200, 'max' => 500, 'label' => '200-500 TL'],
+                ['min' => 500, 'max' => null, 'label' => '500+ TL'],
+            ];
+            
+            // Get rating options
+            $ratingOptions = [
+                ['value' => 5, 'label' => '5 Yıldız'],
+                ['value' => 4, 'label' => '4+ Yıldız'],
+                ['value' => 3, 'label' => '3+ Yıldız'],
+                ['value' => 2, 'label' => '2+ Yıldız'],
+                ['value' => 1, 'label' => '1+ Yıldız'],
+            ];
+            
+            // Get sort options
+            $sortOptions = [
+                ['value' => 'relevance', 'label' => 'En Uygun'],
+                ['value' => 'rating', 'label' => 'En Yüksek Puan'],
+                ['value' => 'price_low', 'label' => 'En Düşük Fiyat'],
+                ['value' => 'price_high', 'label' => 'En Yüksek Fiyat'],
+                ['value' => 'experience', 'label' => 'En Deneyimli'],
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'filters' => [
+                    'categories' => $categories,
+                    'price_ranges' => $priceRanges,
+                    'rating_options' => $ratingOptions,
+                    'sort_options' => $sortOptions,
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error getting search filters: ' . $e->getMessage());
+            
+            return response()->json([
+                'error' => [
+                    'code' => 'SEARCH_FILTERS_ERROR',
+                    'message' => 'Arama filtreleri yüklenirken bir hata oluştu'
+                ]
+            ], 500);
+        }
     }
 }

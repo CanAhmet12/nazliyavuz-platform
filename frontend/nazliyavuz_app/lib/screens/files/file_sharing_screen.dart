@@ -1,65 +1,101 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-// import 'package:open_file/open_file.dart'; // Temporarily unused
-import '../../services/api_service.dart';
-import '../../widgets/custom_widgets.dart';
+import 'package:intl/intl.dart';
 import '../../models/user.dart';
-import '../../models/shared_file.dart';
+import '../../services/api_service.dart';
+import '../../theme/app_theme.dart';
 
 class FileSharingScreen extends StatefulWidget {
   final User otherUser;
-  final int? reservationId;
 
   const FileSharingScreen({
     super.key,
     required this.otherUser,
-    this.reservationId,
   });
 
   @override
   State<FileSharingScreen> createState() => _FileSharingScreenState();
 }
 
-class _FileSharingScreenState extends State<FileSharingScreen> {
+class _FileSharingScreenState extends State<FileSharingScreen>
+    with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
-  List<SharedFile> _sharedFiles = [];
+  final ScrollController _scrollController = ScrollController();
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  
+  List<Map<String, dynamic>> _sharedFiles = [];
   bool _isLoading = true;
+  bool _isUploading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
     _loadSharedFiles();
   }
 
+  void _initializeAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutQuart,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+
   Future<void> _loadSharedFiles() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
     try {
-      final response = await _apiService.getSharedFiles(
-        widget.otherUser.id,
-        widget.reservationId,
-      );
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
 
-      setState(() {
-        _sharedFiles = (response['files'] as List)
-            .map((json) => SharedFile.fromJson(json))
-            .toList();
-        _isLoading = false;
-      });
+      final result = await _apiService.getSharedFiles(
+        0, // Current user ID
+        widget.otherUser.id,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _sharedFiles = (result['data'] as List)
+              .map((json) => json as Map<String, dynamic>)
+              .toList();
+          _isLoading = false;
+        });
+        _animationController.forward();
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _pickAndUploadFile() async {
     try {
+      setState(() => _isUploading = true);
+
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: false,
@@ -68,305 +104,720 @@ class _FileSharingScreenState extends State<FileSharingScreen> {
       if (result != null && result.files.single.path != null) {
         final file = result.files.single;
         
-        // Show category selection dialog
-        final category = await _showCategoryDialog();
-        if (category == null) return;
-
-        // Show description dialog
-        final description = await _showDescriptionDialog();
-        
-        // Show loading dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const AlertDialog(
-            content: Row(
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 16),
-                Text('Dosya yükleniyor...'),
-              ],
-            ),
-          ),
-        );
-
-        try {
-          await _apiService.uploadSharedFile(
-            filePath: file.path!,
-            fileName: file.name,
-            receiverId: widget.otherUser.id,
-            description: description ?? '',
-            category: category,
-            reservationId: widget.reservationId,
-          );
-
-          Navigator.pop(context); // Close loading dialog
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Dosya başarıyla paylaşıldı'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          _loadSharedFiles();
-        } catch (e) {
-          Navigator.pop(context); // Close loading dialog
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Dosya yüklenirken hata: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        // Show upload dialog
+        _showUploadDialog(file);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Dosya seçilirken hata: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar('Dosya seçilirken hata oluştu: $e');
+    } finally {
+      setState(() => _isUploading = false);
     }
   }
 
-  Future<String?> _showCategoryDialog() async {
-    return showDialog<String>(
+  void _showUploadDialog(PlatformFile file) {
+    final descriptionController = TextEditingController();
+    String selectedCategory = 'document';
+
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Kategori Seçin'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text('Dosya Paylaş'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildCategoryOption('document', 'Döküman'),
-            _buildCategoryOption('homework', 'Ödev'),
-            _buildCategoryOption('notes', 'Notlar'),
-            _buildCategoryOption('resource', 'Kaynak'),
-            _buildCategoryOption('other', 'Diğer'),
+            Text(
+              'Dosya: ${file.name}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              'Boyut: ${_formatFileSize(file.size)}',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Açıklama',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: selectedCategory,
+              decoration: const InputDecoration(
+                labelText: 'Kategori',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'document', child: Text('Döküman')),
+                DropdownMenuItem(value: 'image', child: Text('Resim')),
+                DropdownMenuItem(value: 'video', child: Text('Video')),
+                DropdownMenuItem(value: 'other', child: Text('Diğer')),
+              ],
+              onChanged: (value) => selectedCategory = value!,
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryOption(String value, String label) {
-    return ListTile(
-      title: Text(label),
-      onTap: () => Navigator.pop(context, value),
-    );
-  }
-
-  Future<String?> _showDescriptionDialog() async {
-    final controller = TextEditingController();
-    
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Açıklama Ekle'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Dosya açıklaması (isteğe bağlı)',
-          ),
-          maxLines: 3,
-        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('Atla'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Tamam'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _downloadFile(SharedFile file) async {
-    try {
-      // final response = await _apiService.downloadSharedFile(file.id);
-      // final downloadUrl = response['download_url'];
-      
-      // Open the file
-      // await OpenFile.open(downloadUrl); // Temporarily disabled
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Dosya indirilirken hata: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _deleteFile(SharedFile file) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Dosyayı Sil'),
-        content: Text('${file.fileName} dosyasını silmek istediğinizden emin misiniz?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: const Text('İptal'),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sil', style: TextStyle(color: Colors.red)),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _uploadFile(
+                file.path!,
+                file.name,
+                descriptionController.text,
+                selectedCategory,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Paylaş'),
           ),
         ],
       ),
     );
+  }
 
-    if (confirmed == true) {
-      try {
-        await _apiService.deleteSharedFile(file.id);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Dosya başarıyla silindi'),
-            backgroundColor: Colors.green,
-          ),
-        );
+  Future<void> _uploadFile(String filePath, String fileName, String description, String category) async {
+    try {
+      setState(() => _isUploading = true);
 
-        _loadSharedFiles();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Dosya silinirken hata: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      await _apiService.uploadSharedFile(
+        filePath: filePath,
+        fileName: fileName,
+        receiverId: widget.otherUser.id,
+        description: description,
+        category: category,
+      );
+
+      _showSuccessSnackBar('Dosya başarıyla paylaşıldı');
+      await _loadSharedFiles();
+    } catch (e) {
+      _showErrorSnackBar('Dosya yüklenirken hata oluştu: $e');
+    } finally {
+      setState(() => _isUploading = false);
     }
+  }
+
+  Future<void> _downloadFile(Map<String, dynamic> file) async {
+    try {
+      _showInfoSnackBar('Dosya indiriliyor...');
+      
+      await _apiService.downloadSharedFile(file['id']);
+      
+      _showSuccessSnackBar('Dosya başarıyla indirildi');
+    } catch (e) {
+      _showErrorSnackBar('Dosya indirilirken hata oluştu: $e');
+    }
+  }
+
+  Future<void> _deleteFile(Map<String, dynamic> file) async {
+    try {
+      await _apiService.deleteSharedFile(file['id']);
+      
+      _showSuccessSnackBar('Dosya silindi');
+      await _loadSharedFiles();
+    } catch (e) {
+      _showErrorSnackBar('Dosya silinirken hata oluştu: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFB),
       appBar: AppBar(
-        title: Text('${widget.otherUser.name} ile Dosyalar'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.upload_file_rounded),
-            onPressed: _pickAndUploadFile,
-            tooltip: 'Dosya Yükle',
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+              backgroundImage: widget.otherUser.profilePhotoUrl != null
+                  ? NetworkImage(widget.otherUser.profilePhotoUrl!)
+                  : null,
+              child: widget.otherUser.profilePhotoUrl == null
+                  ? Text(
+                      widget.otherUser.name[0].toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.otherUser.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Text(
+                  'Dosya Paylaşımı',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: _buildBody(),
+        ),
+      ),
+      floatingActionButton: _buildFloatingActionButton(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return _buildLoadingState();
+    }
+
+    if (_error != null) {
+      return _buildErrorState();
+    }
+
+    if (_sharedFiles.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadSharedFiles,
+      color: AppTheme.primaryBlue,
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(20),
+        itemCount: _sharedFiles.length,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: _buildFileCard(_sharedFiles[index]),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFileCard(Map<String, dynamic> file) {
+    final fileType = _getFileType(file['file_name'] ?? '');
+    final fileIcon = _getFileIcon(fileType);
+    final fileColor = _getFileColor(fileType);
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      body: _isLoading
-          ? CustomWidgets.customLoading(message: 'Dosyalar yükleniyor...')
-          : _error != null
-              ? CustomWidgets.errorWidget(
-                  errorMessage: _error!,
-                  onRetry: _loadSharedFiles,
-                )
-              : _sharedFiles.isEmpty
-                  ? CustomWidgets.emptyState(
-                      message: 'Henüz dosya paylaşılmadı.',
-                      icon: Icons.folder_open_rounded,
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadSharedFiles,
-                      child: ListView.builder(
-                        itemCount: _sharedFiles.length,
-                        itemBuilder: (context, index) {
-                          final file = _sharedFiles[index];
-                          return _buildFileCard(file);
-                        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            children: [
+              // File Icon
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: fileColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  fileIcon,
+                  color: fileColor,
+                  size: 24,
+                ),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // File Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      file['file_name'] ?? 'Dosya',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatFileSize(file['file_size'] ?? 0),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
                       ),
                     ),
-    );
-  }
-
-  Widget _buildFileCard(SharedFile file) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-          child: Icon(
-            _getFileIcon(file.fileIcon),
-            color: Theme.of(context).colorScheme.primary,
-          ),
-        ),
-        title: Text(
-          file.fileName,
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${file.categoryInTurkish} • ${file.fileSizeFormatted}'),
-            Text(
-              '${file.uploadedBy.name} • ${_formatDate(file.createdAt)}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (file.description.isNotEmpty)
-              Text(
-                file.description,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontStyle: FontStyle.italic,
+                  ],
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.download_rounded),
-              onPressed: () => _downloadFile(file),
-              tooltip: 'İndir',
+              
+              // Actions
+              PopupMenuButton<String>(
+                onSelected: (value) async {
+                  switch (value) {
+                    case 'download':
+                      await _downloadFile(file);
+                      break;
+                    case 'delete':
+                      _showDeleteConfirmation(file);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'download',
+                    child: Row(
+                      children: [
+                        Icon(Icons.download_rounded),
+                        SizedBox(width: 12),
+                        Text('İndir'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_rounded, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text('Sil', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.more_vert,
+                    color: Colors.grey,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          // Description
+          if (file['description'] != null && file['description'].toString().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                file['description'],
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  height: 1.4,
+                ),
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_rounded, color: Colors.red),
-              onPressed: () => _deleteFile(file),
-              tooltip: 'Sil',
-            ),
           ],
-        ),
-        onTap: () => _downloadFile(file),
+          
+          const SizedBox(height: 16),
+          
+          // Footer Info
+          Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 16,
+                color: Colors.grey[500],
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _formatDate(file['created_at']),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: fileColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _getCategoryText(file['category'] ?? 'other'),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: fileColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  IconData _getFileIcon(String iconType) {
-    switch (iconType) {
+  Widget _buildFloatingActionButton() {
+    return FloatingActionButton.extended(
+      onPressed: _isUploading ? null : _pickAndUploadFile,
+      backgroundColor: AppTheme.primaryBlue,
+      foregroundColor: Colors.white,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      icon: _isUploading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Icon(Icons.upload_file_rounded),
+      label: Text(
+        _isUploading ? 'Yükleniyor...' : 'Dosya Paylaş',
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text(
+            'Dosyalar yükleniyor...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: Colors.red[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Bir hata oluştu',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.red[400],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _error ?? 'Bilinmeyen hata',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _loadSharedFiles,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Tekrar Dene'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.folder_open_outlined,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Henüz paylaşılan dosya yok',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'İlk dosyayı paylaşmak için aşağıdaki butona tıklayın',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[400],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(Map<String, dynamic> file) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text('Dosyayı Sil'),
+        content: Text('${file['file_name']} dosyasını silmek istediğinizden emin misiniz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteFile(file);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentRed,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getFileType(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension)) {
+      return 'image';
+    } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'].contains(extension)) {
+      return 'video';
+    } else if (['mp3', 'wav', 'aac', 'flac', 'ogg'].contains(extension)) {
+      return 'audio';
+    } else if (['pdf', 'doc', 'docx', 'txt', 'rtf'].contains(extension)) {
+      return 'document';
+    } else if (['xls', 'xlsx', 'csv'].contains(extension)) {
+      return 'spreadsheet';
+    } else if (['ppt', 'pptx'].contains(extension)) {
+      return 'presentation';
+    } else if (['zip', 'rar', '7z', 'tar', 'gz'].contains(extension)) {
+      return 'archive';
+    } else {
+      return 'other';
+    }
+  }
+
+  IconData _getFileIcon(String fileType) {
+    switch (fileType) {
       case 'image':
         return Icons.image_rounded;
       case 'video':
         return Icons.video_file_rounded;
       case 'audio':
         return Icons.audio_file_rounded;
-      case 'picture_as_pdf':
-        return Icons.picture_as_pdf_rounded;
-      case 'description':
+      case 'document':
         return Icons.description_rounded;
-      case 'text_snippet':
-        return Icons.text_snippet_rounded;
+      case 'spreadsheet':
+        return Icons.table_chart_rounded;
+      case 'presentation':
+        return Icons.slideshow_rounded;
+      case 'archive':
+        return Icons.archive_rounded;
       default:
         return Icons.insert_drive_file_rounded;
     }
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays} gün önce';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} saat önce';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} dakika önce';
-    } else {
-      return 'Az önce';
+  Color _getFileColor(String fileType) {
+    switch (fileType) {
+      case 'image':
+        return AppTheme.accentGreen;
+      case 'video':
+        return AppTheme.accentRed;
+      case 'audio':
+        return AppTheme.accentOrange;
+      case 'document':
+        return AppTheme.primaryBlue;
+      case 'spreadsheet':
+        return AppTheme.accentGreen;
+      case 'presentation':
+        return AppTheme.accentOrange;
+      case 'archive':
+        return AppTheme.accentPurple;
+      default:
+        return Colors.grey;
     }
+  }
+
+  String _getCategoryText(String category) {
+    switch (category) {
+      case 'document':
+        return 'Döküman';
+      case 'image':
+        return 'Resim';
+      case 'video':
+        return 'Video';
+      case 'audio':
+        return 'Ses';
+      default:
+        return 'Diğer';
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return 'Bilinmiyor';
+    
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('dd MMM yyyy, HH:mm').format(date);
+    } catch (e) {
+      return 'Bilinmiyor';
+    }
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Text(message),
+          ],
+        ),
+        backgroundColor: AppTheme.accentGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error, color: Colors.white),
+            const SizedBox(width: 12),
+            Text(message),
+          ],
+        ),
+        backgroundColor: AppTheme.accentRed,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info, color: Colors.white),
+            const SizedBox(width: 12),
+            Text(message),
+          ],
+        ),
+        backgroundColor: AppTheme.primaryBlue,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
   }
 }

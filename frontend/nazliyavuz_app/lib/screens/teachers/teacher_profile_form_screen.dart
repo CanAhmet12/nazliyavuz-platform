@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../models/teacher.dart';
 import '../../models/category.dart';
+import '../../theme/app_theme.dart';
 
 class TeacherProfileFormScreen extends StatefulWidget {
   final Teacher? existingTeacher;
@@ -86,20 +88,36 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(widget.existingTeacher != null ? 'Profil Düzenle' : 'Öğretmen Profili Oluştur'),
-        backgroundColor: Colors.transparent,
+        title: Text(
+          widget.existingTeacher != null ? 'Profil Düzenle' : 'Öğretmen Profili',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
+        toolbarHeight: 50,
+        centerTitle: true,
         actions: [
           if (widget.existingTeacher != null)
             IconButton(
-              icon: const Icon(Icons.save),
+              icon: const Icon(Icons.save_rounded, size: 20),
               onPressed: _isSubmitting ? null : _submitForm,
+              padding: const EdgeInsets.all(8),
             ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
@@ -153,19 +171,33 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
                       [
                         Text(
                           'Hangi konularda ders verebiliyorsunuz?',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                          style: TextStyle(
+                            color: AppTheme.grey600,
+                            fontSize: 14,
                           ),
                         ),
                         const SizedBox(height: 12),
                         Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                          spacing: 6,
+                          runSpacing: 6,
                           children: _categories.map((category) {
                             final isSelected = _selectedCategories.any((c) => c.id == category.id);
                             return FilterChip(
-                              label: Text(category.name),
+                              label: Text(
+                                category.name,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                               selected: isSelected,
+                              selectedColor: AppTheme.primaryBlue.withOpacity(0.2),
+                              checkmarkColor: AppTheme.primaryBlue,
+                              backgroundColor: Colors.white,
+                              side: BorderSide(
+                                color: isSelected ? AppTheme.primaryBlue : AppTheme.grey300,
+                                width: 1,
+                              ),
                               onSelected: (selected) {
                                 setState(() {
                                   if (selected) {
@@ -174,6 +206,7 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
                                     _selectedCategories.removeWhere((c) => c.id == category.id);
                                   }
                                 });
+                                HapticFeedback.lightImpact();
                               },
                             );
                           }).toList(),
@@ -199,8 +232,9 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
                       [
                         Text(
                           'Aldığınız eğitimleri ve derecelerinizi ekleyin',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                          style: TextStyle(
+                            color: AppTheme.grey600,
+                            fontSize: 14,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -237,8 +271,9 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
                       [
                         Text(
                           'Sahip olduğunuz sertifikaları ekleyin',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                          style: TextStyle(
+                            color: AppTheme.grey600,
+                            fontSize: 14,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -275,8 +310,9 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
                       [
                         Text(
                           'Hangi dillerde ders verebiliyorsunuz?',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                          style: TextStyle(
+                            color: AppTheme.grey600,
+                            fontSize: 14,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -308,12 +344,19 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
                     const SizedBox(height: 32),
 
                     // Kaydet Butonu
-                    SizedBox(
+                    Container(
                       width: double.infinity,
+                      margin: const EdgeInsets.only(top: 8),
                       child: ElevatedButton(
                         onPressed: _isSubmitting ? null : _submitForm,
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: AppTheme.primaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
                         ),
                         child: _isSubmitting
                             ? const SizedBox(
@@ -328,7 +371,7 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
                                 widget.existingTeacher != null ? 'Güncelle' : 'Profil Oluştur',
                                 style: const TextStyle(
                                   fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                       ),
@@ -341,7 +384,19 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
   }
 
   Widget _buildSectionCard(String title, List<Widget> children) {
-    return Card(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -349,12 +404,13 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: AppTheme.grey900,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             ...children,
           ],
         ),
@@ -375,11 +431,28 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        border: const OutlineInputBorder(),
+        hintStyle: TextStyle(color: AppTheme.grey500, fontSize: 14),
+        labelStyle: TextStyle(color: AppTheme.grey600, fontSize: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppTheme.grey300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppTheme.grey300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppTheme.primaryBlue, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        filled: true,
+        fillColor: Colors.white,
       ),
       maxLines: maxLines,
       keyboardType: keyboardType,
       validator: validator,
+      style: const TextStyle(fontSize: 14),
     );
   }
 
@@ -399,8 +472,25 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
             decoration: InputDecoration(
               labelText: label,
               hintText: hint,
-              border: const OutlineInputBorder(),
+              hintStyle: TextStyle(color: AppTheme.grey500, fontSize: 14),
+              labelStyle: TextStyle(color: AppTheme.grey600, fontSize: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.grey300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.grey300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.primaryBlue, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              filled: true,
+              fillColor: Colors.white,
             ),
+            style: const TextStyle(fontSize: 14),
             onSubmitted: (value) {
               if (value.trim().isNotEmpty) {
                 onAdd(value.trim());
@@ -410,14 +500,22 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: () {
-            if (controller.text.trim().isNotEmpty) {
-              onAdd(controller.text.trim());
-              controller.clear();
-            }
-          },
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.primaryBlue,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                onAdd(controller.text.trim());
+                controller.clear();
+                HapticFeedback.lightImpact();
+              }
+            },
+            padding: const EdgeInsets.all(8),
+          ),
         ),
       ],
     );
@@ -425,20 +523,38 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
 
   Widget _buildListItem(String text, VoidCallback onRemove) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+        color: AppTheme.primaryBlue.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.2)),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Text(text),
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14, color: AppTheme.grey900),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: onRemove,
+          GestureDetector(
+            onTap: () {
+              onRemove();
+              HapticFeedback.lightImpact();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red[600]!.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Icons.close_rounded,
+                size: 16,
+                color: Colors.red[600],
+              ),
+            ),
           ),
         ],
       ),
@@ -496,8 +612,16 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 14),
+        ),
+        backgroundColor: AppTheme.accentGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -505,8 +629,16 @@ class _TeacherProfileFormScreenState extends State<TeacherProfileFormScreen> {
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 14),
+        ),
+        backgroundColor: Colors.red[600],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }

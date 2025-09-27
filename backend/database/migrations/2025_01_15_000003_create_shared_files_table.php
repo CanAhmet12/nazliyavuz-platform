@@ -13,22 +13,20 @@ return new class extends Migration
     {
         Schema::create('shared_files', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('sender_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('receiver_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('reservation_id')->nullable()->constrained()->onDelete('set null');
-            $table->string('filename');
-            $table->text('description')->nullable();
-            $table->enum('category', ['document', 'homework', 'notes', 'resource', 'other'])->default('document');
+            $table->foreignId('teacher_id')->nullable()->constrained('users')->onDelete('cascade');
+            $table->foreignId('student_id')->nullable()->constrained('users')->onDelete('cascade');
+            $table->string('name');
             $table->string('file_path');
-            $table->string('file_url');
             $table->bigInteger('file_size');
             $table->string('mime_type');
+            $table->string('category');
+            $table->text('description')->nullable();
+            $table->json('shared_with')->nullable();
             $table->timestamps();
             
-            $table->index(['sender_id', 'receiver_id']);
-            $table->index(['receiver_id', 'created_at']);
-            $table->index(['reservation_id']);
-            $table->index(['category']);
+            $table->index(['teacher_id', 'created_at']);
+            $table->index(['student_id', 'created_at']);
+            $table->index('category');
         });
     }
 

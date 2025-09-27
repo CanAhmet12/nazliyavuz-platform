@@ -7,8 +7,7 @@ import '../teachers/enhanced_teachers_screen.dart';
 import '../lessons/enhanced_lessons_screen.dart';
 import '../reservations/enhanced_reservations_screen.dart';
 import '../profile/enhanced_profile_screen.dart';
-import '../search/search_screen.dart';
-import '../notifications/notification_screen.dart';
+import '../assignments/assignment_screen.dart';
 import '../admin/admin_layout.dart';
 import '../chat/chat_list_screen.dart';
 import '../../theme/app_theme.dart';
@@ -104,6 +103,9 @@ class _HomeScreenState extends State<HomeScreen>
               _buildHomeTab(user),
               const EnhancedTeachersScreen(),
               const EnhancedLessonsScreen(),
+              const EnhancedReservationsScreen(),
+              const AssignmentScreen(),
+              const ChatListScreen(),
               const EnhancedProfileScreen(),
             ],
           ),
@@ -142,9 +144,11 @@ class _HomeScreenState extends State<HomeScreen>
             children: [
               Expanded(child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Ana Sayfa')),
               Expanded(child: _buildNavItem(1, Icons.school_outlined, Icons.school, 'Öğretmenler')),
-              const SizedBox(width: 16), // Space for FAB
               Expanded(child: _buildNavItem(2, Icons.book_outlined, Icons.book, 'Dersler')),
-              Expanded(child: _buildNavItem(3, Icons.person_outlined, Icons.person, 'Profil')),
+              Expanded(child: _buildNavItem(3, Icons.calendar_today_outlined, Icons.calendar_today, 'Rezervasyon')),
+              Expanded(child: _buildNavItem(4, Icons.assignment_outlined, Icons.assignment, 'Ödevler')),
+              Expanded(child: _buildNavItem(5, Icons.chat_outlined, Icons.chat, 'Mesajlar')),
+              Expanded(child: _buildNavItem(6, Icons.person_outlined, Icons.person, 'Profil')),
             ],
           ),
         ),
@@ -285,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen>
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const SearchScreen(),
+                            builder: (context) => const EnhancedTeachersScreen(),
                           ),
                         );
                       },
@@ -317,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen>
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const NotificationScreen(),
+                            builder: (context) => const ChatListScreen(),
                           ),
                         );
                       },
@@ -547,7 +551,7 @@ class _HomeScreenState extends State<HomeScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const SearchScreen(),
+                                builder: (context) => const EnhancedTeachersScreen(),
                               ),
                             );
                           },
@@ -572,7 +576,7 @@ class _HomeScreenState extends State<HomeScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const NotificationScreen(),
+                                builder: (context) => const ChatListScreen(),
                               ),
                             );
                           },
@@ -672,7 +676,7 @@ class _HomeScreenState extends State<HomeScreen>
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const SearchScreen(),
+                    builder: (context) => const EnhancedTeachersScreen(),
                   ),
                 );
               },
@@ -708,7 +712,7 @@ class _HomeScreenState extends State<HomeScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const SearchScreen(),
+                      builder: (context) => const EnhancedTeachersScreen(),
                     ),
                   );
                 },
@@ -746,7 +750,7 @@ class _HomeScreenState extends State<HomeScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const NotificationScreen(),
+                      builder: (context) => const ChatListScreen(),
                     ),
                   );
                 },

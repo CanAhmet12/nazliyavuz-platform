@@ -122,6 +122,7 @@ Widget build(BuildContext context) {
 }
 
 
+
   Widget _buildHeader() {
     return Column(
       children: [
@@ -147,10 +148,20 @@ Widget build(BuildContext context) {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.school_rounded,
-            size: 40,
-            color: Colors.white,
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: 40,
+            height: 40,
+            fit: BoxFit.contain,
+            // color: Colors.white, // Bu logo'yu beyaz yapıyor!
+            errorBuilder: (context, error, stackTrace) {
+              debugPrint('❌ [LOGIN] Logo error: $error');
+              return Icon(
+                Icons.school_rounded,
+                size: 40,
+                color: Colors.white,
+              );
+            },
           ),
         ),
         
@@ -164,7 +175,7 @@ Widget build(BuildContext context) {
             end: Alignment.bottomRight,
           ).createShader(bounds),
           child: Text(
-            'Hoş Geldiniz',
+            'Rota Akademi',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w800,
               color: Colors.white,
@@ -458,10 +469,25 @@ Widget build(BuildContext context) {
         }
       },
       builder: (context, state) {
-        return AnimatedButton(
-          onPressed: state is AuthLoading
-              ? null
-              : () {
+        return Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.grey300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: state is AuthLoading ? null : () {
                   if (kDebugMode) {
                     print('🔐 [LOGIN_SCREEN] Login button pressed');
                     print('🔐 [LOGIN_SCREEN] Form validation starting...');
@@ -490,56 +516,37 @@ Widget build(BuildContext context) {
                     }
                   }
                 },
-          child: Container(
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.premiumGold,
-                  AppTheme.premiumGold.withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.premiumGold.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Center(
-              child: state is AuthLoading
+              child: Center(
+                child: state is AuthLoading
                   ? const SizedBox(
                       height: 24,
                       width: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.grey700),
                       ),
                     )
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.login_rounded,
-                          color: Colors.white,
+                          color: AppTheme.grey700,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Giriş Yap',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
+                                color: AppTheme.grey700,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       ],
                     ),
+                ),
+              ),
             ),
-          ),
         );
       },
     );

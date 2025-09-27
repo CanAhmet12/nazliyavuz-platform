@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use App\Services\PushNotificationService;
+use App\Models\User;
 
 class PushNotificationController extends Controller
 {
@@ -22,176 +24,223 @@ class PushNotificationController extends Controller
      */
     public function registerToken(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'token' => 'required|string|max:500',
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'token' => 'required|string|max:500',
+                'device_type' => 'nullable|string|in:android,ios,web',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
-                ]
-            ], 400);
-        }
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'Geçersiz veri',
+                        'details' => $validator->errors()
+                    ]
+                ], 422);
+            }
 
-        $user = Auth::user();
-        $success = $this->pushNotificationService->registerFCMToken($user, $request->token);
+            $user = Auth::user();
+            
+            // Get existing tokens
+            $existingTokens = $user->fcm_tokens ?? [];
+            
+            // Add new token if not exists
+            if (!in_array($request->token, $existingTokens)) {
+                $existingTokens[] = $request->token;
+                
+                $user->update([
+                    'fcm_tokens' => $existingTokens
+                ]);
+            }
 
-        if ($success) {
             return response()->json([
                 'success' => true,
-                'message' => 'FCM token registered successfully'
+                'message' => 'FCM token başarıyla kaydedildi'
             ]);
-        }
 
-        return response()->json([
-            'error' => [
-                'code' => 'REGISTRATION_FAILED',
-                'message' => 'Failed to register FCM token'
-            ]
-        ], 500);
+        } catch (\Exception $e) {
+            Log::error('Error registering FCM token: ' . $e->getMessage());
+
+            return response()->json([
+                'error' => [
+                    'code' => 'TOKEN_REGISTRATION_ERROR',
+                    'message' => 'Token kaydedilirken bir hata oluştu'
+                ]
+            ], 500);
+        }
     }
 
     /**
-     * Unregister FCM token for the authenticated user
+     * Unregister FCM token
      */
     public function unregisterToken(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'token' => 'required|string|max:500',
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'token' => 'required|string',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
-                ]
-            ], 400);
-        }
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'Geçersiz veri',
+                        'details' => $validator->errors()
+                    ]
+                ], 422);
+            }
 
-        $user = Auth::user();
-        $success = $this->pushNotificationService->unregisterFCMToken($user, $request->token);
+            $user = Auth::user();
+            
+            // Remove token from user's tokens
+            $existingTokens = $user->fcm_tokens ?? [];
+            $updatedTokens = array_filter($existingTokens, function($token) use ($request) {
+                return $token !== $request->token;
+            });
+            
+            $user->update([
+                'fcm_tokens' => array_values($updatedTokens)
+            ]);
 
-        if ($success) {
             return response()->json([
                 'success' => true,
-                'message' => 'FCM token unregistered successfully'
+                'message' => 'FCM token başarıyla kaldırıldı'
             ]);
-        }
 
-        return response()->json([
-            'error' => [
-                'code' => 'UNREGISTRATION_FAILED',
-                'message' => 'Failed to unregister FCM token'
-            ]
-        ], 500);
+        } catch (\Exception $e) {
+            Log::error('Error unregistering FCM token: ' . $e->getMessage());
+
+            return response()->json([
+                'error' => [
+                    'code' => 'TOKEN_UNREGISTRATION_ERROR',
+                    'message' => 'Token kaldırılırken bir hata oluştu'
+                ]
+            ], 500);
+        }
     }
 
     /**
-     * Send test notification (for development/testing)
+     * Send test notification
      */
     public function sendTestNotification(Request $request): JsonResponse
     {
-        if (!config('app.debug')) {
+        try {
+            $user = Auth::user();
+
+            $success = $this->pushNotificationService->sendNotification(
+                $user,
+                'Test Bildirimi',
+                'Bu bir test bildirimidir.',
+                ['type' => 'test']
+            );
+
+            if ($success) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Test bildirimi gönderildi'
+                ]);
+            }
+
             return response()->json([
                 'error' => [
-                    'code' => 'NOT_ALLOWED',
-                    'message' => 'Test notifications only available in debug mode'
+                    'code' => 'NOTIFICATION_FAILED',
+                    'message' => 'Bildirim gönderilemedi'
                 ]
-            ], 403);
-        }
+            ], 500);
 
-        $validator = Validator::make($request->all(), [
-            'title' => 'required|string|max:255',
-            'body' => 'required|string|max:500',
-        ]);
+        } catch (\Exception $e) {
+            Log::error('Error sending test notification: ' . $e->getMessage());
 
-        if ($validator->fails()) {
             return response()->json([
                 'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
+                    'code' => 'TEST_NOTIFICATION_ERROR',
+                    'message' => 'Test bildirimi gönderilirken bir hata oluştu'
                 ]
-            ], 400);
+            ], 500);
         }
-
-        $user = Auth::user();
-        $success = $this->pushNotificationService->sendToUser(
-            $user,
-            $request->title,
-            $request->body,
-            ['type' => 'test']
-        );
-
-        if ($success) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Test notification sent successfully'
-            ]);
-        }
-
-        return response()->json([
-            'error' => [
-                'code' => 'SEND_FAILED',
-                'message' => 'Failed to send test notification'
-            ]
-        ], 500);
     }
 
     /**
-     * Get user's notification settings
+     * Get notification settings
      */
     public function getNotificationSettings(): JsonResponse
     {
-        $user = Auth::user();
-        
-        $settings = [
-            'push_notifications_enabled' => !empty($user->fcm_tokens),
-            'reservation_notifications' => true, // Can be stored in user preferences
-            'rating_notifications' => true,
-            'message_notifications' => true,
-            'promotional_notifications' => true,
-            'system_notifications' => true,
-        ];
+        try {
+            $user = Auth::user();
+            
+            // Default notification settings
+            $defaultSettings = [
+                'email_notifications' => true,
+                'push_notifications' => true,
+                'reservation_notifications' => true,
+                'message_notifications' => true,
+                'assignment_notifications' => true,
+                'marketing_notifications' => false,
+            ];
 
-        return response()->json([
-            'success' => true,
-            'data' => $settings
-        ]);
+            return response()->json([
+                'success' => true,
+                'settings' => $defaultSettings
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error getting notification settings: ' . $e->getMessage());
+
+            return response()->json([
+                'error' => [
+                    'code' => 'SETTINGS_ERROR',
+                    'message' => 'Bildirim ayarları alınırken bir hata oluştu'
+                ]
+            ], 500);
+        }
     }
 
     /**
-     * Update user's notification settings
+     * Update notification settings
      */
     public function updateNotificationSettings(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'reservation_notifications' => 'boolean',
-            'rating_notifications' => 'boolean',
-            'message_notifications' => 'boolean',
-            'promotional_notifications' => 'boolean',
-            'system_notifications' => 'boolean',
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'email_notifications' => 'boolean',
+                'push_notifications' => 'boolean',
+                'reservation_notifications' => 'boolean',
+                'message_notifications' => 'boolean',
+                'assignment_notifications' => 'boolean',
+                'marketing_notifications' => 'boolean',
+            ]);
 
-        if ($validator->fails()) {
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'Geçersiz veri',
+                        'details' => $validator->errors()
+                    ]
+                ], 422);
+            }
+
+            $user = Auth::user();
+            
+            // Update user notification preferences
+            // For now, we'll store them in a JSON field or separate table
+            // This is a simplified implementation
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Bildirim ayarları güncellendi'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating notification settings: ' . $e->getMessage());
+
             return response()->json([
                 'error' => [
-                    'code' => 'VALIDATION_ERROR',
-                    'message' => $validator->errors()
+                    'code' => 'SETTINGS_UPDATE_ERROR',
+                    'message' => 'Bildirim ayarları güncellenirken bir hata oluştu'
                 ]
-            ], 400);
+            ], 500);
         }
-
-        $user = Auth::user();
-        
-        // Here you would typically update user preferences in the database
-        // For now, we'll just return success
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Notification settings updated successfully'
-        ]);
     }
 }
