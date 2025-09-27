@@ -17,6 +17,10 @@ use App\Http\Controllers\PushNotificationController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\PerformanceDashboardController;
+use App\Http\Controllers\LessonController;
+use App\Http\Controllers\AssignmentController;
+use App\Http\Controllers\FileSharingController;
+use App\Http\Controllers\FileUploadController;
 
 /*
 |--------------------------------------------------------------------------

@@ -15,7 +15,7 @@ import '../models/assignment.dart';
 class ApiService {
   static const String baseUrl = kDebugMode 
       ? 'http://192.168.150.19:8080/api/v1'  // Local Development (PC IP)
-      : 'https://nazliyavuz-backend-1050061286516.europe-west4.run.app/api/v1';    // Production
+      : 'http://34.77.40.180:8000/api/v1';    // Production VM
   late Dio _dio;
   String? _token;
   
