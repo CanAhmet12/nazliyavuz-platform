@@ -135,7 +135,6 @@ class UserSeeder extends Seeder
                     'name' => $teacherData['name'],
                     'password' => Hash::make('password'),
                     'role' => 'teacher',
-                    'is_approved' => 1,
                     'verified_at' => now(),
                     'email_verified_at' => now(),
                 ]
@@ -151,6 +150,7 @@ class UserSeeder extends Seeder
                     'languages' => $teacherData['languages'],
                     'rating_avg' => rand(40, 50) / 10, // 4.0 - 5.0 arası
                     'rating_count' => rand(5, 50),
+                    'is_approved' => 1,
                 ]
             );
 

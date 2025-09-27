@@ -44,9 +44,9 @@ class TeacherController extends Controller
             Log::info('🗄️ Starting database query...');
             $query = Teacher::with(['user', 'categories'])
                 ->whereHas('user', function ($q) {
-                    $q->where('role', 'teacher')
-                      ->where('is_approved', 1);
-                });
+                    $q->where('role', 'teacher');
+                })
+                ->where('is_approved', 1);
             Log::info('✅ Base query created with relationships');
 
             // Kategori filtresi
@@ -197,9 +197,9 @@ class TeacherController extends Controller
         try {
             $teacher = Teacher::with(['user', 'categories', 'reviews.user', 'lessons'])
                 ->whereHas('user', function ($q) {
-                    $q->where('role', 'teacher')
-                      ->where('is_approved', 1);
+                    $q->where('role', 'teacher');
                 })
+                ->where('is_approved', 1)
                 ->findOrFail($id);
 
             return response()->json([
@@ -227,9 +227,9 @@ class TeacherController extends Controller
         try {
             $teachers = Teacher::with(['user', 'categories'])
                 ->whereHas('user', function ($q) {
-                    $q->where('role', 'teacher')
-                      ->where('is_approved', 1);
+                    $q->where('role', 'teacher');
                 })
+                ->where('is_approved', 1)
                 ->where('rating_avg', '>=', 4.0)
                 ->orderBy('rating_avg', 'desc')
                 ->limit(10)
