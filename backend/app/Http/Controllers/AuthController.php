@@ -252,7 +252,17 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $verification = EmailVerification::where('email', $request->email)
+            $user = User::where('email', $request->email)->first();
+            if (!$user) {
+                return response()->json([
+                    'error' => [
+                        'code' => 'USER_NOT_FOUND',
+                        'message' => 'Kullanıcı bulunamadı'
+                    ]
+                ], 404);
+            }
+
+            $verification = EmailVerification::where('user_id', $user->id)
                 ->where('verification_code', $request->verification_code)
                 ->where('expires_at', '>', now())
                 ->first();
@@ -267,13 +277,10 @@ class AuthController extends Controller
             }
 
             // Mark user as verified
-            $user = User::where('email', $request->email)->first();
-            if ($user) {
-                $user->update([
-                    'email_verified_at' => now(),
-                    'verified_at' => now(),
-                ]);
-            }
+            $user->update([
+                'email_verified_at' => now(),
+                'verified_at' => now(),
+            ]);
 
             // Delete verification record
             $verification->delete();
