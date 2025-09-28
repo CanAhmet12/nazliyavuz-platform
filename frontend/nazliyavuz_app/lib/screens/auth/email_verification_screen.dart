@@ -198,7 +198,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     });
 
     try {
-      await _apiService.verifyEmail(_tokenController.text.trim());
+      await _apiService.verifyEmail(widget.email, _tokenController.text.trim());
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

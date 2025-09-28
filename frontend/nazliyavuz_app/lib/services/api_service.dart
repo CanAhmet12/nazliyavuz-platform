@@ -1209,10 +1209,11 @@ class ApiService {
   }
 
   // Email verification endpoints
-  Future<void> verifyEmail(String code) async {
+  Future<void> verifyEmail(String email, String code) async {
     try {
       await _dio.post('/auth/verify-email-code', data: {
-        'code': code,
+        'email': email,
+        'verification_code': code,
       });
     } on DioException catch (e) {
       throw _handleError(e);
